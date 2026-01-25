@@ -9,8 +9,8 @@
   <p align="center"><font>使用flutter构建的第三方轻小说文库客户端</font></p>
 
   <div>
-    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/15dd/wenku8reader?style=for-the-badge&color=%23408A23">
-    <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/15dd/wenku8reader/total?style=for-the-badge&color=%23478da7">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/15dd/hikari_novel_flutter?style=for-the-badge&color=%23408A23">
+    <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/15dd/hikari_novel_flutter/total?style=for-the-badge&color=%23478da7">
     <img alt="License" src="https://img.shields.io/badge/License-MIT-Green?style=for-the-badge&color=rgb(164%2C25%2C49)">
   </div>
   
