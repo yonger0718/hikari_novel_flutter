@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'api.dart';
 
 class ChapterDownloader {
   final Map<String, CancelToken> _cancelTokens = {}; // taskId -> CancelToken
@@ -30,11 +29,12 @@ class ChapterDownloader {
     final cancelToken = CancelToken();
     _cancelTokens[taskId] = cancelToken;
 
+    //FIXME 重写缓存
     try {
       // 网络请求
-      Response response;
+      Response response = await Dio().get("");
       try {
-        response = await Api.getNovelContentResponse(aid: aid, cid: cid, cancelToken: cancelToken);
+        // response = await Api.getNovelContent(aid: aid, cid: cid);
       } on DioException catch (e) {
         _cancelTokens.remove(taskId);
         if (e.type == DioExceptionType.cancel) {

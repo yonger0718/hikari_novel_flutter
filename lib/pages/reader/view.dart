@@ -62,28 +62,39 @@ class ReaderPage extends StatelessWidget {
             ),
           ),
           Obx(() {
+            final bool isIgnoring = controller.pageState.value != PageState.success;
+            final bool isOffstage = controller.readerSettingsState.value.direction == ReaderDirection.upToDown;
+
             return Positioned.fill(
               child: Offstage(
-                offstage: controller.readerSettingsState.value.direction == ReaderDirection.upToDown,
+                offstage: isOffstage,
+                //确保IgnorePointer的hitTestBehavior正确
                 child: IgnorePointer(
-                  ignoring: controller.pageState.value != PageState.success, //FIXME 似乎一直被误触
+                  ignoring: isIgnoring,
                   child: Row(
                     children: [
                       Expanded(
                         flex: 1,
                         child: GestureDetector(
+                          //根据ignoring状态禁用GestureDetector
+                          onTap: isIgnoring
+                              ? null
+                              : () => controller.readerSettingsState.value.direction == ReaderDirection.leftToRight
+                                    ? controller.prevPage()
+                                    : controller.nextPage(),
                           behavior: HitTestBehavior.translucent,
-                          onTap: () =>
-                              controller.readerSettingsState.value.direction == ReaderDirection.leftToRight ? controller.prevPage() : controller.nextPage(),
                         ),
                       ),
-                      Expanded(flex: 1, child: Container()),
+                      const Expanded(flex: 1, child: SizedBox()),
                       Expanded(
                         flex: 1,
                         child: GestureDetector(
+                          onTap: isIgnoring
+                              ? null
+                              : () => controller.readerSettingsState.value.direction == ReaderDirection.leftToRight
+                                    ? controller.nextPage()
+                                    : controller.prevPage(),
                           behavior: HitTestBehavior.translucent,
-                          onTap: () =>
-                              controller.readerSettingsState.value.direction == ReaderDirection.leftToRight ? controller.nextPage() : controller.prevPage(),
                         ),
                       ),
                     ],
@@ -204,7 +215,8 @@ class ReaderPage extends StatelessWidget {
             style: textStyle,
             controller: controller.scrollController,
             onScroll: (position, max) {
-              if (max == 0 && position == 0) { //仅一页的情况下
+              if (max == 0 && position == 0) {
+                //仅一页的情况下
                 controller.location.value = 0;
                 controller.verticalProgress.value = 100;
                 controller.setReadHistory(); //立即更新历史阅读记录
@@ -255,7 +267,8 @@ class ReaderPage extends StatelessWidget {
         onPageChanged: (index, max) {
           controller.currentIndex.value = index;
           controller.maxPage.value = max;
-          if (max == 1 && index == 0) { //仅一页的情况下
+          if (max == 1 && index == 0) {
+            //仅一页的情况下
             controller.horizontalProgress.value = 100;
             controller.setReadHistory(); //立即更新历史阅读记录
           } else if (max > 0) {
