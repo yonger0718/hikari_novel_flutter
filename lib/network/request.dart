@@ -121,20 +121,38 @@ class Request {
   /// 检查Response包中是否要求重定向
   /// - [response] 要检查的Response包
   static Future<dynamic> _checkRedirects(Response response) async {
-    if (response.statusCode != null && response.statusCode! >= 300 && response.statusCode! < 400) {
-      final location = response.headers.value('location');
-      if (location != null) {
-        final cookies = await _dioCookieJar.loadForRequest(Uri.parse(location));
-        final cookieHeader = cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
-        final redirectedResponse = await dio.get(
-          "${Api.wenku8Node.node}/$location",
-          options: Options(headers: {...dio.options.headers, 'Cookie': cookieHeader}),
-        );
-        return redirectedResponse.data;
-      }
-    }
-    return response.data;
+  // Manually follow redirects because `followRedirects` is disabled.
+  // This is important for Wenku8 login: the server often sets cookies on a 302 chain.
+  Response current = response;
+  int hop = 0;
+
+  while (current.statusCode != null &&
+      current.statusCode! >= 300 &&
+      current.statusCode! < 400 &&
+      hop < 6) {
+    final location = current.headers.value('location');
+    if (location == null || location.trim().isEmpty) break;
+
+    // Resolve relative redirects against the current request URI.
+    final baseUri = current.realUri;
+    final nextUri = baseUri.resolve(location);
+
+    Log.d("Redirect[${hop + 1}]: $baseUri -> $nextUri");
+
+    // IMPORTANT:
+    // Do NOT manually inject Cookie header here. CookieManager will attach cookies
+    // stored from previous responses automatically.
+    current = await dio.getUri(
+      nextUri,
+      options: Options(
+        headers: {...dio.options.headers},
+      ),
+    );
+    hop++;
   }
+
+  return current.data;
+}
 
   /// 以post方法进行http请求
   /// body以Content-Type: application/x-www-form-urlencoded的形式进行发送
@@ -151,17 +169,23 @@ class Request {
                 headers: {...dio.options.headers, "Cookie": _cookie},
                 contentType: Headers.formUrlEncodedContentType, //设置为application/x-www-form-urlencoded
               )
-            : null,
+            : Options(
+                contentType: Headers.formUrlEncodedContentType, //设置为application/x-www-form-urlencoded
+              ),
       );
+
+      // ✅ 与 GET 一样：手动处理 302 重定向（否则可能拿不到最终 Cookie）
+      final raw = await _checkRedirects(response);
+
       String decodedHtml;
       switch (charsetsType) {
         case CharsetsType.gbk:
           {
-            decodedHtml = GbkCodec().decode(response.data as Uint8List);
+            decodedHtml = GbkCodec().decode(raw as Uint8List);
           }
         case CharsetsType.big5Hkscs:
           {
-            decodedHtml = Big5Codec().decode(response.data as Uint8List);
+            decodedHtml = Big5Codec().decode(raw as Uint8List);
           }
       }
       return Success(decodedHtml);

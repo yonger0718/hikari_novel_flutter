@@ -244,7 +244,7 @@ class AppTranslations extends Translations {
       "password": "密码",
       "logging_in": "正在登录...",
       "login_input_required": "请输入用户名和密码",
-      "go_to_web_login": "去网页",
+      "go_to_web_login": "去网页登录",
       "login_form_tip": "如果账号登录失败，可点击左下角“去网页登录”作为备用登录。",
       "version": "版本",
       "pending": "挂起中",
