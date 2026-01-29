@@ -35,7 +35,12 @@ class _LoginFormPageState extends State<LoginFormPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Keep the bottom-left "go to web" entry pinned when the keyboard shows.
+    // We will handle keyboard overlap by adding viewInsets.bottom to the
+    // scrollable content padding instead of letting Scaffold resize the body.
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
@@ -43,7 +48,7 @@ class _LoginFormPageState extends State<LoginFormPage> {
               child: SingleChildScrollView(
                 // Keep extra bottom space so the fixed "go to web" button never covers
                 // the login CTA (prevents mis-taps).
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 96 + bottomInset),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
@@ -106,17 +111,17 @@ class _LoginFormPageState extends State<LoginFormPage> {
 
                       const SizedBox(height: 16),
                       Obx(
-                        () => FilledButton.icon(
+                            () => FilledButton.icon(
                           onPressed:
-                              controller.isSubmitting.value ? null : _onLogin,
+                          controller.isSubmitting.value ? null : _onLogin,
                           icon: controller.isSubmitting.value
                               ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
                               : const Icon(Icons.login),
                           label: Text(
                             controller.isSubmitting.value
@@ -147,7 +152,7 @@ class _LoginFormPageState extends State<LoginFormPage> {
                 style: TextButton.styleFrom(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 ),
                 onPressed: () => Get.toNamed(RoutePath.webLogin),
                 icon: const Icon(Icons.public),

@@ -123,7 +123,7 @@ class SearchPage extends StatelessWidget {
             ],
             body: Stack(
               children: [
-                // 确保搜索结果区域始终用页面底色铺满
+                // 确保搜索结果区域始终用页面底色铺满。
                 Positioned.fill(child: ColoredBox(color: pageBg)),
                 Obx(() => Offstage(
                       offstage: controller.pageState.value != PageState.success,
