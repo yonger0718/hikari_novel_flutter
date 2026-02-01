@@ -61,7 +61,7 @@ class LoginController extends GetxController {
           await _getUserInfo();
           await _refreshBookshelf();
         } catch (e) {
-          LocalStorageService.instance.setCookie(null); //清空报错的cookie
+          LocalStorageService.instance.setCookie(null); //清空cookie
           Get.offAllNamed(RoutePath.welcome);
           return;
         }
