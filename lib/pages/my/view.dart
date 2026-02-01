@@ -26,7 +26,6 @@ class MyPage extends StatelessWidget {
             _buildUserInfoCard(context),
             const SizedBox(height: 20),
             ListTile(title: Text("browsing_history".tr), leading: const Icon(Icons.history), onTap: AppSubRouter.toBrowsingHistory),
-            ListTile(title: Text("offline_books".tr), leading: const Icon(Icons.download_done_outlined), onTap: AppSubRouter.toOfflineBooks),
             ListTile(title: Text("check_update".tr), leading: const Icon(Icons.update), onTap: _checkUpdate),
             ListTile(title: Text("setting".tr), leading: const Icon(Icons.settings_outlined), onTap: AppSubRouter.toSetting),
             ListTile(title: Text("about".tr), leading: const Icon(Icons.info_outline), onTap: AppSubRouter.toAbout),
@@ -57,52 +56,10 @@ class MyPage extends StatelessWidget {
             ),
             const SizedBox(width: 2),
             Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 180),
-                      child: Text(
-                        controller.userInfo.value?.username ?? "",
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Spacer(),
-
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Obx(
-                      () {
-                        final isDisabled =
-                            controller.userInfo.value == null || controller.isCheckingIn.value || controller.hasCheckedIn.value;
-
-                        return ElevatedButton(
-                          onPressed: isDisabled ? null : () => controller.checkIn(),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                            minimumSize: const Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          child: Text(
-                            controller.hasCheckedIn.value
-                                ? "已签到"
-                                : controller.isCheckingIn.value
-                                    ? "签到中"
-                                    : "签到",
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              child: Text(
+                controller.userInfo.value?.username ?? "",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
               ),
             )
           ],

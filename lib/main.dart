@@ -11,10 +11,12 @@ import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/common/app_translations.dart';
 import 'package:hikari_novel_flutter/common/constants.dart';
 import 'package:hikari_novel_flutter/common/util.dart';
+import 'package:hikari_novel_flutter/network/request.dart';
 import 'package:hikari_novel_flutter/router/app_pages.dart';
 import 'package:hikari_novel_flutter/router/route_path.dart';
 import 'package:hikari_novel_flutter/service/db_service.dart';
 import 'package:hikari_novel_flutter/service/local_storage_service.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 import 'package:jiffy/jiffy.dart';
 
 final localhostServer = InAppLocalhostServer(documentRoot: 'assets');
@@ -26,6 +28,7 @@ void main() async {
 
   await Get.put(LocalStorageService()).init();
   Get.put(DBService()).init();
+  await Get.put(TtsService()).init();
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     final availableVersion = await WebViewEnvironment.getAvailableVersion();
@@ -42,6 +45,7 @@ void main() async {
 
   _init();
   await Jiffy.setLocale(Util.getCurrentLocale().toString());
+  Request.initCookie(); //初始化cookie
 
   FlutterNativeSplash.remove();
 

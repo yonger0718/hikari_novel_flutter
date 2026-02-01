@@ -439,6 +439,7 @@ class _HorizontalReadPageState extends State<HorizontalReadPage> with WidgetsBin
       s.height,
       s.letterSpacing,
       s.wordSpacing,
+      s.color?.toARGB32(),
       p.left,
       p.right,
       p.top,

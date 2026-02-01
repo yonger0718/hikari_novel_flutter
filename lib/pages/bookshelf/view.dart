@@ -21,21 +21,18 @@ class BookshelfPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-    onPopInvokedWithResult: (didPop, _) {
-  if (didPop) return;
-
-  if (controller.pageState.value == PageState.bookshelfSearch) {
-    controller.pageState.value = PageState.bookshelfContent;
-    return;
-  }
-
-  if (controller.isSelectionMode.value) {
-    currentTabController.exitSelectionMode();
-    return;
-  }
-
-  Get.back();
-},
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (controller.pageState.value == PageState.bookshelfSearch) {
+          controller.pageState.value = PageState.bookshelfContent;
+          return;
+        }
+        if (controller.isSelectionMode.value) {
+          currentTabController.exitSelectionMode();
+          return;
+        }
+        Get.back();
+      },
       child: Stack(
         children: [
           Obx(() => Offstage(offstage: controller.pageState.value != PageState.bookshelfContent, child: _buildBookshelfContent(context))),

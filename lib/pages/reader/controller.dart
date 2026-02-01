@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:file_picker/file_picker.dart';
@@ -17,8 +18,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:ttf_metadata/ttf_metadata.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 
 import '../../common/database/database.dart';
+import '../../common/log.dart';
 import '../../models/cat_volume.dart';
 import '../../models/page_state.dart';
 import '../../network/api.dart';
@@ -30,8 +33,8 @@ class ReaderController extends GetxController {
 
   late List<CatVolume> catalogue;
   late String aid;
-  int currentVolumeIndex = int.parse(Get.parameters["volume"]!);
-  int currentChapterIndex = int.parse(Get.parameters["chapter"]!);
+  late int currentVolumeIndex;
+  late int currentChapterIndex;
 
   String get cid => catalogue[currentVolumeIndex].chapters[currentChapterIndex].cid;
 
@@ -74,11 +77,6 @@ class ReaderController extends GetxController {
   ///竖向模式下，显示当前阅读进度的百分比
   RxInt verticalProgress = 0.obs;
 
-  ///Debounce workers (avoid creating new debounce workers on every scroll/page change)
-  late final Worker _locationDebounceWorker;
-  late final Worker _indexDebounceWorker;
-
-
   ///文本内容
   RxString text = "".obs;
 
@@ -96,27 +94,14 @@ class ReaderController extends GetxController {
 
   Rxn<String> currentBgImagePath = Rxn();
 
+  bool isInitialized = false;
+
   @override
   void onInit() async {
     super.onInit();
 
-    // Create debounce workers only once. Do NOT create them inside scroll/page callbacks.
-    _locationDebounceWorker = debounce(
-      location,
-      (_) => setReadHistory(),
-      time: const Duration(milliseconds: 500),
-    );
-
-    _indexDebounceWorker = debounce(
-      currentIndex,
-      (_) => setReadHistory(),
-      time: const Duration(milliseconds: 500),
-    );
-
-
     aid = _novelDetailController.aid;
     catalogue = _novelDetailController.novelDetail.value!.catalogue;
-    chapterTitle.value = catalogue[currentVolumeIndex].chapters[currentChapterIndex].title;
 
     _battery.batteryLevel.then((l) => batteryLevel.value = l);
     _battery.onBatteryStateChanged.listen((l) async {
@@ -128,6 +113,12 @@ class ReaderController extends GetxController {
     getBgImage();
 
     checkFontFile(true);
+
+    //延迟更新阅读记录
+    //debounce / ever / interval 只能在 Controller 生命周期里创建一次
+    //TODO 还需要优化
+    interval(location, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
+    interval(currentIndex, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
   }
 
   @override
@@ -136,20 +127,34 @@ class ReaderController extends GetxController {
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: true);
     if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+    /*
+     1) 至于这里的cid为什么不直接使用上面的<get cid>，是因为上面的<get cid>依赖currentVolumeIndex和currentChapterIndex。
+        而我们想要currentVolumeIndex和currentChapterIndex的时候，需要根据cid在catalogue中获取其对应的VolumeIndex和ChapterIndex。
+     2) 因为getContent()函数依赖cid，所以我把初始化cid的过程放到了onReady而不是onInit中。
+     */
+    final listOnlyWithCid = catalogue.map((cat) => cat.chapters.map((chap) => chap.cid).toList()).toList(); //仅提取含有cid的list
+    final targetCid = Get.parameters["cid"]!;
+    final indexPosition = (await compute(_findIndexPositionInCatalogue, {'catalogue': listOnlyWithCid, 'cid': targetCid}))!;
+
+    currentVolumeIndex = indexPosition[0];
+    currentChapterIndex = indexPosition[1];
+
+    chapterTitle.value = catalogue[currentVolumeIndex].chapters[currentChapterIndex].title;
+
     await getContent();
   }
 
   @override
   void onClose() {
+    TtsService.instance.stop();
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: false);
     if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    _locationDebounceWorker.dispose();
-    _indexDebounceWorker.dispose();
     super.onClose();
   }
 
   //获取初始页面位置
   int getInitLocation() {
+    isInitialized = true;
     if (readerSettingsState.value.direction == ReaderDirection.upToDown) {
       try {
         int value = int.parse(Get.parameters["location"]!);
@@ -287,13 +292,13 @@ class ReaderController extends GetxController {
   }
 
   void setReadHistory() {
+    Log.d("setReadHistory");
     DBService.instance.upsertReadHistory(
       ReadHistoryEntityData(
         cid: cid,
         aid: aid,
-        volume: currentVolumeIndex,
-        chapter: currentChapterIndex,
-        readerMode: readerSettingsState.value.direction == ReaderDirection.upToDown ? kScrollReadMode : kPageReadMode,  // 1为滚动模式，2为翻页模式，翻页模式的左右方向不影响阅读记录的使用
+        readerMode: readerSettingsState.value.direction == ReaderDirection.upToDown ? kScrollReadMode : kPageReadMode,
+        // 1为滚动模式，2为翻页模式，翻页模式的左右方向不影响阅读记录的使用
         isDualPage: isDualPage,
         location: readerSettingsState.value.direction == ReaderDirection.upToDown ? location.value : currentIndex.value,
         progress: readerSettingsState.value.direction == ReaderDirection.upToDown ? verticalProgress.value : horizontalProgress.value,
@@ -555,6 +560,26 @@ class ReaderController extends GetxController {
       await fontsDir.delete(recursive: true);
     }
   }
+}
+
+///查找目标字符串在二维列表中出现的位置
+///返回格式：[外层索引, 内层索引]，未找到则返回 null
+List<int>? _findIndexPositionInCatalogue(Map<String, dynamic> args) {
+  final catalogue = args['catalogue'] as List<List<String>>;
+  final targetCid = args['cid'] as String;
+
+  // 遍历外层列表，同时获取索引和子列表
+  for (int outerIndex = 0; outerIndex < catalogue.length; outerIndex++) {
+    List<String> innerList = catalogue[outerIndex];
+    // 查找目标字符串在当前子列表中的索引
+    int innerIndex = innerList.indexOf(targetCid);
+    // 如果找到（索引不为 -1），返回位置
+    if (innerIndex != -1) {
+      return [outerIndex, innerIndex];
+      // return IndexPosition(volumeIndex: outerIndex, chapterIndex: innerIndex);
+    }
+  }
+  return null;
 }
 
 class ReaderSettingsState {

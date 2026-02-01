@@ -57,7 +57,7 @@ class LoginPage extends StatelessWidget {
                 },
                 onLoadStop: (webController, webUri) async {
                   if (webUri != null) {
-                    controller.saveCookie(webController, webUri);
+                    controller.saveCookie(webUri);
                   }
 
                   if (webUri.toString() == controller.url) {
