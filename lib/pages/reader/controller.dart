@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:ttf_metadata/ttf_metadata.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 
 import '../../common/database/database.dart';
 import '../../common/log.dart';
@@ -145,6 +146,7 @@ class ReaderController extends GetxController {
 
   @override
   void onClose() {
+    TtsService.instance.stop();
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: false);
     if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.onClose();

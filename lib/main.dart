@@ -15,7 +15,9 @@ import 'package:hikari_novel_flutter/network/request.dart';
 import 'package:hikari_novel_flutter/router/app_pages.dart';
 import 'package:hikari_novel_flutter/router/route_path.dart';
 import 'package:hikari_novel_flutter/service/db_service.dart';
+import 'package:hikari_novel_flutter/service/dev_mode_service.dart';
 import 'package:hikari_novel_flutter/service/local_storage_service.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 import 'package:jiffy/jiffy.dart';
 
 final localhostServer = InAppLocalhostServer(documentRoot: 'assets');
@@ -26,7 +28,9 @@ void main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   await Get.put(LocalStorageService()).init();
+  await Get.put(DevModeService()).init();
   Get.put(DBService()).init();
+  await Get.put(TtsService()).init();
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     final availableVersion = await WebViewEnvironment.getAvailableVersion();

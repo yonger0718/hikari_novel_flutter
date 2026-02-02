@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/common/constants.dart';
 import 'package:hikari_novel_flutter/common/extension.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 
 import '../../../models/dual_page_mode.dart';
 import '../../../models/reader_direction.dart';
@@ -25,7 +26,7 @@ class ReaderSettingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3, // tab 数量
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text("setting".tr),
@@ -34,11 +35,12 @@ class ReaderSettingPage extends StatelessWidget {
             tabs: [
               Tab(icon: const Icon(Icons.settings_outlined), text: "basic".tr),
               Tab(icon: const Icon(Icons.palette_outlined), text: "theme".tr),
+              const Tab(icon: Icon(Icons.menu_book_outlined), text: '听书'),
               Tab(icon: const Icon(Icons.padding), text: "margin".tr),
             ],
           ),
         ),
-        body: TabBarView(children: [_buildBasic(context), _buildTheme(context), _buildPadding()]),
+        body: TabBarView(children: [_buildBasic(context), _buildTheme(context), _buildListen(context), _buildPadding()]),
       ),
     );
   }
@@ -331,7 +333,199 @@ class ReaderSettingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPadding() {
+  
+
+  Widget _buildListen(BuildContext context) {
+    final tts = TtsService.instance;
+    return ListView(
+      children: [
+        Obx(
+          () => SwitchListTile(
+            title: Text('启用听书', style: kSettingTitleTextStyle),
+            value: tts.enabled.value,
+            onChanged: (v) => tts.setEnabled(v),
+          ),
+        ),
+        ListTile(
+          title: Text('打开系统 TTS 设置', style: kSettingTitleTextStyle),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => tts.openAndroidTtsSettings(),
+        ),
+        Obx(
+          () => ListTile(
+            title: Text('TTS 引擎', style: kSettingTitleTextStyle),
+            subtitle: Text(
+              tts.engine.value == null ? (Platform.isAndroid ? '自动(系统默认)' : 'iOS 不支持切换引擎') : tts.displayEngineName(tts.engine.value!),
+              style: kSettingSubtitleTextStyle,
+            ),
+            enabled: tts.enabled.value && Platform.isAndroid,
+            trailing: const Icon(Icons.keyboard_arrow_down),
+            onTap: (!tts.enabled.value || !Platform.isAndroid)
+                ? null
+                : () async {
+                    await tts.refreshEngines();
+                    if (!context.mounted) return;
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (ctx) {
+                        return Obx(
+                          () => ListView(
+                            children: [
+                              ListTile(
+                                title: Text('自动(系统默认)'),
+                                onTap: () {
+                                  tts.applyEngine(null);
+                                  Navigator.pop(ctx);
+                                },
+                              ),
+                              ...tts.engines.map(
+                                (e) => ListTile(
+                                  title: Text(tts.displayEngineName(e)),
+                                  onTap: () async {
+                                    await tts.applyEngine(e);
+                                    await tts.refreshVoices();
+                                    Navigator.pop(ctx);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+          ),
+        ),
+        Obx(
+          () => ListTile(
+            title: Text('音色', style: kSettingTitleTextStyle),
+            subtitle: Text(
+              tts.voice.value == null
+                  ? '自动'
+                  : '${tts.voice.value!['name']} (${tts.voice.value!['locale']})',
+              style: kSettingSubtitleTextStyle,
+            ),
+            enabled: tts.enabled.value,
+            trailing: const Icon(Icons.keyboard_arrow_down),
+            onTap: !tts.enabled.value
+                ? null
+                : () async {
+                    await tts.refreshVoices();
+                    if (!context.mounted) return;
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (ctx) {
+                        return Obx(
+                          () => ListView(
+                            children: [
+                              ListTile(
+                                title: Text('自动'),
+                                onTap: () {
+                                  tts.applyVoice(null);
+                                  Navigator.pop(ctx);
+                                },
+                              ),
+                              ...tts.voices.map(
+                                (v) => ListTile(
+                                  title: Text(v['name'] ?? ''),
+                                  subtitle: Text(v['locale'] ?? ''),
+                                  onTap: () async {
+                                    await tts.applyVoice(v);
+                                    Navigator.pop(ctx);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+          ),
+        ),
+        const Divider(height: 1),
+        Obx(
+          () => ListTile(
+            title: Row(
+              children: [
+                Text('语速', style: kSettingTitleTextStyle),
+                const Spacer(),
+                Text(tts.rate.value.toStringAsFixed(2), style: kSettingSubtitleTextStyle),
+              ],
+            ),
+            subtitle: Slider(
+              min: 0.1,
+              max: 1.0,
+              divisions: 18,
+              value: tts.rate.value,
+              onChanged: tts.enabled.value ? (v) => tts.setRate(v) : null,
+            ),
+          ),
+        ),
+        Obx(
+          () => ListTile(
+            title: Row(
+              children: [
+                Text('音调', style: kSettingTitleTextStyle),
+                const Spacer(),
+                Text(tts.pitch.value.toStringAsFixed(2), style: kSettingSubtitleTextStyle),
+              ],
+            ),
+            subtitle: Slider(
+              min: 0.5,
+              max: 2.0,
+              divisions: 15,
+              value: tts.pitch.value,
+              onChanged: tts.enabled.value ? (v) => tts.setPitch(v) : null,
+            ),
+          ),
+        ),
+        Obx(
+          () => ListTile(
+            title: Row(
+              children: [
+                Text('音量', style: kSettingTitleTextStyle),
+                const Spacer(),
+                Text(tts.volume.value.toStringAsFixed(2), style: kSettingSubtitleTextStyle),
+              ],
+            ),
+            subtitle: Slider(
+              min: 0.0,
+              max: 1.0,
+              divisions: 20,
+              value: tts.volume.value,
+              onChanged: tts.enabled.value ? (v) => tts.setVolume(v) : null,
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('刷新设置', style: kSettingTitleTextStyle),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            '修改语速/音调/音量后，需点击“刷新设置”才会立即生效（部分引擎播放中无法实时更新）。',
+            style: kSettingSubtitleTextStyle,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Obx(
+            () => ElevatedButton.icon(
+              onPressed: tts.enabled.value ? () => tts.refreshSettings(restartIfPlaying: true) : null,
+              icon: const Icon(Icons.refresh),
+              label: const Text('刷新设置'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+Widget _buildPadding() {
     return ListView(
       children: [
         ListTile(

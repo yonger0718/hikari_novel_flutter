@@ -10,6 +10,8 @@ import 'package:hikari_novel_flutter/pages/reader/widgets/reader_background.dart
 import 'package:hikari_novel_flutter/pages/reader/widgets/vertical_read_page.dart';
 import 'package:hikari_novel_flutter/widgets/state_page.dart';
 import 'package:intl/intl.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
+import 'package:hikari_novel_flutter/pages/reader/widgets/tts_floating_controller.dart';
 
 import '../../common/constants.dart';
 import '../../models/page_state.dart';
@@ -97,6 +99,7 @@ class ReaderPage extends StatelessWidget {
             ),
           ),
           _buildBottomStatusBar(context),
+          const TtsFloatingController(),
           Obx(() {
             //顶栏
             double statusBarHeight = MediaQuery.of(context).padding.top;
@@ -143,6 +146,42 @@ class ReaderPage extends StatelessWidget {
                         ),
                         Expanded(
                           child: IconButton(onPressed: () => Get.toNamed(RoutePath.readerSetting), icon: const Icon(Icons.settings_outlined)),
+                        ),
+                        Expanded(
+                          child: IconButton(
+                            tooltip: '听书',
+                            onPressed: () async {
+                              final tts = TtsService.instance;
+                              if (!tts.enabled.value) {
+                                await tts.setEnabled(true);
+                              }
+                              final text = controller.text.value;
+                              final cleaned = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+                              if (cleaned.isEmpty) {
+                                Get.snackbar('提示', '当前章节还在加载中');
+                                return;
+                              }
+
+                              // UX: first click => start; second click => stop.
+                              if (tts.isPlaying.value) {
+                                await tts.stop();
+                                return;
+                              }
+                              if (tts.isPaused.value && tts.isSessionActive.value) {
+                                await tts.resumeSession();
+                                return;
+                              }
+
+                              await tts.startChapter(cleaned);
+                            },
+                            icon: Obx(() {
+                              final tts = TtsService.instance;
+                              if (tts.isPlaying.value) {
+                                return const Icon(Icons.stop_circle);
+                              }
+                              return const Icon(Icons.play_circle_fill);
+                            }),
+                          ),
                         ),
                         Expanded(
                           child: IconButton(
