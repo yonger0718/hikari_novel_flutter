@@ -1,0 +1,78 @@
+name: Sync Upstream and Build iOS IPA
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天凌晨 00:00 檢查同步
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # 允許手動點擊執行
+
+jobs:
+  sync_and_build:
+    name: Sync, Build and Release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync with Upstream
+        run: |
+          # 請在此處填入原始專案的 GitHub HTTPS 網址
+          # 例如: https://github.com/m some_user/hikari_novel_flutter.git
+          UPSTREAM_URL="https://github.com/15dd/hikari_novel_flutter.git"
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git remote add upstream $UPSTREAM_URL || true
+          git fetch upstream
+          
+          # 嘗試切換到 main 並合併。如果您的分支名稱不同(如 master)，請修改。
+          git checkout main
+          if git merge upstream/main; then
+            echo "Successfully merged upstream changes."
+            git push origin main || echo "Nothing to push"
+          else
+            echo "Merge conflict or no changes. Checking if we should proceed..."
+          fi
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build iOS (No Codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          mv Runner.app Payload
+          zip -qq -r -9 hikari_novel_flutter.ipa Payload
+
+      - name: Get Version from pubspec
+        id: get_version
+        run: |
+          VERSION=$(grep 'version: ' pubspec.yaml | sed 's/version: //')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}-${{ github.run_number }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: build/ios/iphoneos/hikari_novel_flutter.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
