@@ -50,6 +50,17 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Patch iOS Config
+        run: |
+          # 修正 Info.plist (移除名稱中的底線以解決 Error 35)
+          sed -i '' 's/hikari_novel_flutter/HikariNovel/g' ios/Runner/Info.plist
+          
+          # 修正 Bundle ID (避免使用 com.example 佔位符)
+          sed -i '' 's/com.example.hikariNovelFlutter/pers.cyh128.hikariNovel/g' ios/Runner.xcodeproj/project.pbxproj
+          
+          # 修正 Product Name (確保內部名稱一致且無底線)
+          sed -i '' 's/PRODUCT_NAME = "$(TARGET_NAME)";/PRODUCT_NAME = HikariNovel;/g' ios/Runner.xcodeproj/project.pbxproj
+
       - name: Build iOS (No Codesign)
         run: flutter build ios --release --no-codesign
 
@@ -57,7 +68,7 @@ jobs:
         run: |
           cd build/ios/iphoneos
           mkdir -p Payload
-          mv Runner.app Payload
+          mv HikariNovel.app Payload
           zip -qq -r -9 hikari_novel_flutter.ipa Payload
 
       - name: Get Version from pubspec
