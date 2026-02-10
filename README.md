@@ -16,7 +16,7 @@
 
 </div>
 
-## 功能
+## ✨ 功能
 - Material Design 3风格
 - 支持深浅模式切换
 - 适配平板
@@ -25,7 +25,7 @@
 - 阅读进度保存
 
 
-## 支持平台
+## 📱 支持平台
 - [x] Android：支持（最低支持版本为Android 6.0），Android15测试通过
 - [x] iOS：理论上支持，未测试
 - [x] Windows：支持，Windows10 22H2及以上测试通过，但未对键鼠操作进行适配，处于半可用状态
@@ -33,25 +33,25 @@
 - [ ] Linux：不支持
 - [ ] Web：不支持
 
-⚠️特别注意️️⚠️：当ios版本出问题时，不保证能修复，因为我没有苹果设备，所以仅保证安卓版能正常使用，但欢迎有能力的人士提pr
+⚠️特别注意️️：当ios版本出问题时，我没办法修复，因为我没有苹果设备，所以仅保证安卓版能正常使用，但欢迎有能力的人士提pr
 
 
-## 安装
+## 📦 安装
 本项目不提供安装包，请参考下方`编译与调试`自行编译使用
 
 
-## 软件截图
+## 🖼️ 软件截图
 <div align="center">
   <img src="./readme/1.jpg" width="30%"></img> <img src="./readme/2.jpg" width="30%"></img> <img src="./readme/3.jpg" width="30%">
 </div>
 
 
-## 分支介绍
+## ⛓️ 分支介绍
 - `main` 主分支。发布版本用
 - `develop` 开发分支。想要提pr的人请拉取这个分支进行开发，然后提pr时也请merge到这个分支
 
 
-## 编译与调试
+## 💻 编译与调试
 - ##### 我的开发环境
     ```
     [√] Flutter (Channel stable, 3.38.5, on Microsoft Windows [版本 10.0.26200.7623], locale zh-CN)
@@ -71,17 +71,18 @@
       > 请自行调整
 
 
-## 声明
+## 📣 声明
 - 本项目是个人为了兴趣以及学习移动端开发而开发的，仅用于学习和测试
-- 本项目所用API均从轻小说文库官方网站和互联网收集，不提供任何破解内容
+- 本项目所用API均从轻小说文库官方网站收集，不提供任何破解内容
 - 本项目是个人项目，与轻小说文库官方无关，请注意辨别
 
 
-## 参考
+## 📖 参考
 - [flutter_dmzj](https://github.com/xiaoyaocz/flutter_dmzj)
 - [venera](https://github.com/venera-app/venera)
 - [mihon](https://github.com/mihonapp/mihon)
 - [mikan_flutter](https://github.com/iota9star/mikan_flutter)
 - [pilipala](https://github.com/guozhigq/pilipala)
 - [PiliPalaX](https://github.com/orz12/PiliPalaX)
+- [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)
 - AI

@@ -23,7 +23,7 @@ import '../../network/api.dart';
 import '../../service/db_service.dart';
 import '../../service/local_storage_service.dart';
 
-class NovelDetailController extends GetxController {
+class NovelDetailController extends GetxController with GetSingleTickerProviderStateMixin {
   final String aid;
 
   NovelDetailController({required this.aid});
@@ -40,16 +40,55 @@ class NovelDetailController extends GetxController {
 
   RxBool isSelectionMode = false.obs;
 
+  bool _isFabVisible = true;
+  late final AnimationController _fabAnimationCtr;
+  late final Animation<Offset> animation;
+
   final bookshelfController = Get.find<BookshelfController>();
   final cacheQueueController = Get.findOrPut(() => CacheQueueController());
 
   late final Directory _supportDir;
 
   @override
+  void onInit() {
+    super.onInit();
+    _fabAnimationCtr = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    )..forward();
+    animation = _fabAnimationCtr.drive(
+      Tween<Offset>(
+        begin: const Offset(0.0, 2.0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
+    );
+  }
+
+  @override
   void onReady() async {
     super.onReady();
     _supportDir = await getApplicationSupportDirectory();
     getNovelDetail();
+  }
+
+  @override
+  void onClose() {
+    _fabAnimationCtr.dispose();
+    super.onClose();
+  }
+
+  void showFab() {
+    if (!_isFabVisible) {
+      _isFabVisible = true;
+      _fabAnimationCtr.forward();
+    }
+  }
+
+  void hideFab() {
+    if (_isFabVisible) {
+      _isFabVisible = false;
+      _fabAnimationCtr.reverse();
+    }
   }
 
   void enterSelectionMode() => isSelectionMode.value = true;
@@ -292,12 +331,12 @@ class NovelDetailController extends GetxController {
       Success() => Parser.novelVote(result.data),
       Error() => result.error.toString(),
     };
-    ScaffoldMessenger.of(Get.context!).showSnackBar(SnackBar(content: Text(string)));
+    showSnackBar(message: string, context: Get.context!);
   }
 
   Future<void> openWithBrowser() async {
     if (!await launchUrl(Uri.parse("${Api.wenku8Node.node}/book/$aid.htm"))) {
-      ScaffoldMessenger.of(Get.context!).showSnackBar(SnackBar(content: Text("unable_to_open_external_browser".tr)));
+      showSnackBar(message: "unable_to_open_external_browser".tr, context: Get.context!);
     }
   }
 

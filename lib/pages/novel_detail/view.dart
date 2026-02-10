@@ -2,6 +2,7 @@ import 'package:blur/blur.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expandable_text/expandable_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/common/constants.dart';
@@ -74,7 +75,14 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
                 appBar: _buildAppBar(context),
                 body: NotificationListener<Notification>(
                   onNotification: (Notification notification) {
-                    if (notification is ScrollNotification) {
+                    if (notification is UserScrollNotification) {
+                      final direction = notification.direction;
+                      if (direction == ScrollDirection.forward) {
+                        controller.showFab();
+                      } else if (direction == ScrollDirection.reverse) {
+                        controller.hideFab();
+                      }
+                    } else if (notification is ScrollNotification) {
                       final double offset = notification.metrics.pixels;
                       _opacity.value = offset > 0 ? 1 : 0;
                     }
@@ -454,12 +462,15 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
               return Container();
             }
             final history = snapshot.data;
-            return FloatingActionButton.extended(
-              onPressed: () {
-                if (history == null) return;
-                Get.toNamed(RoutePath.reader, parameters: {"cid": history.cid, "location": "${history.location}"});
-              },
-              label: Row(children: [const Icon(Icons.play_arrow), const SizedBox(width: 10), Text("continue_reading".tr)]),
+            return SlideTransition(
+              position: controller.animation,
+              child: FloatingActionButton.extended(
+                onPressed: () {
+                  if (history == null) return;
+                  Get.toNamed(RoutePath.reader, parameters: {"cid": history.cid, "location": "${history.location}"});
+                },
+                label: Row(children: [const Icon(Icons.play_arrow), const SizedBox(width: 10), Text("continue_reading".tr)]),
+              ),
             );
           },
         ),

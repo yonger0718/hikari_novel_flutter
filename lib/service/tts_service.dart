@@ -5,11 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:get/get.dart';
 import 'package:flutter/widgets.dart';
+import 'package:hikari_novel_flutter/widgets/state_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../common/log.dart';
 import 'local_storage_service.dart';
 
-//TODO 翻译
 class TtsService extends GetxService {
   static const MethodChannel _intentChannel = MethodChannel('hikari/system_intents');
 
@@ -117,7 +118,7 @@ class TtsService extends GetxService {
 
     await refreshVoices();
     final savedVoice = voice.value;
-    if (savedVoice != null && voices.any((v) => v['name'] == savedVoice['name'] && v['locale'] == savedVoice['locale'])) {
+    if (savedVoice != null && voices.any((v) => v["name"] == savedVoice["name"] && v["locale"] == savedVoice["locale"])) {
       await applyVoice(savedVoice);
     } else {
       voice.value = null;
@@ -126,8 +127,8 @@ class TtsService extends GetxService {
   }
 
   String displayEngineName(String enginePackage) {
-    if (enginePackage == multiTtsEnginePackage) return 'MultiTTS';
-    return '系统TTS';
+    if (enginePackage == multiTtsEnginePackage) return "MultiTTS";
+    return "system_tts".tr;
   }
 
   Future<void> refreshEngines() async {
@@ -142,9 +143,8 @@ class TtsService extends GetxService {
       });
       engines.assignAll(list);
     } catch (e) {
-      if (kDebugMode) {
-        print('[TtsService] getEngines failed: $e');
-      }
+      Log.d("[TtsService] getEngines failed: $e");
+
       engines.clear();
     }
   }
@@ -156,19 +156,18 @@ class TtsService extends GetxService {
       if (result is List) {
         for (final v in result) {
           if (v is Map) {
-            final name = v['name']?.toString();
-            final locale = v['locale']?.toString();
+            final name = v["name"]?.toString();
+            final locale = v["locale"]?.toString();
             if (name != null && locale != null) {
-              list.add({'name': name, 'locale': locale});
+              list.add({"name": name, "locale": locale});
             }
           }
         }
       }
       voices.assignAll(list);
     } catch (e) {
-      if (kDebugMode) {
-        print('[TtsService] getVoices failed: $e');
-      }
+      Log.d("[TtsService] getVoices failed: $e");
+
       voices.clear();
     }
   }
@@ -186,9 +185,7 @@ class TtsService extends GetxService {
       try {
         await _tts.setEngine(e);
       } catch (err) {
-        if (kDebugMode) {
-          print('[TtsService] setEngine failed: $err');
-        }
+        Log.d("[TtsService] setEngine failed: $err");
       }
     }
     await _applyBestLanguage();
@@ -201,9 +198,7 @@ class TtsService extends GetxService {
     try {
       await _tts.setVoice(v);
     } catch (err) {
-      if (kDebugMode) {
-        print('[TtsService] setVoice failed: $err');
-      }
+      Log.d("[TtsService] setVoice failed: $err");
     }
   }
 
@@ -253,10 +248,8 @@ class TtsService extends GetxService {
     try {
       await _intentChannel.invokeMethod('openTtsSettings');
     } catch (e) {
-      if (kDebugMode) {
-        print('[TtsService] openTtsSettings failed: $e');
-        Get.snackbar('提示', '无法打开系统TTS设置：$e');
-      }
+      Log.d("[TtsService] openTtsSettings failed: $e");
+      showSnackBar(message: "${"unable_to_open_system_setting".tr}: $e", context: Get.context!);
     }
   }
 
@@ -265,9 +258,7 @@ class TtsService extends GetxService {
     try {
       await _intentChannel.invokeMethod('openApp', {'package': packageName});
     } catch (e) {
-      if (kDebugMode) {
-        print('[TtsService] openApp failed: $e');
-      }
+      Log.d("[TtsService] openApp failed: $e");
     }
   }
 
@@ -434,20 +425,18 @@ class TtsService extends GetxService {
   void _handleSpeakResult(dynamic r) {
     if (r is int && r == 0) {
       if (_stopRequested || _pauseRequested) {
-        if (kDebugMode) {
-          print('[TtsService] speak() returned 0 but stop/pause was requested; suppressing error');
-        }
+        Log.d("[TtsService] speak() returned 0 but stop/pause was requested; suppressing error");
         return;
       }
-      if (kDebugMode) {
-        print('[TtsService] speak() returned 0 (failed)');
-      }
+
+      Log.d("[TtsService] speak() returned 0 (failed)");
+
       isPlaying.value = false;
       isPaused.value = false;
       if (isSessionActive.value) {
         _endSession();
       }
-      Get.snackbar('听书失败', '系统TTS没有开始播放。请在「系统TTS设置」里确认已安装引擎/语音，并尝试切换语言/引擎。');
+      showSnackBar(message: "listen_to_books_failed_tip".tr, context: Get.context!);
     }
   }
 

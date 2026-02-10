@@ -77,7 +77,7 @@ class ReplyPage extends StatelessWidget {
                     TextButton(onPressed: Get.back, child: Text("cancel".tr)),
                     TextButton(
                       onPressed: () async {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(await controller.sendReply())));
+                        showSnackBar(message: await controller.sendReply(), context: Get.context!);
                         Get.back();
                       },
                       child: Text("reply".tr),

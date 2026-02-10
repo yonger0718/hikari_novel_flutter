@@ -69,14 +69,14 @@ class _TtsFloatingControllerState extends State<TtsFloatingController> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                "听书",
+                "listen_to_books".tr,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: kSettingSubtitleTextStyle.copyWith(color: fg),
+                style: kBaseTileSubtitleTextStyle.copyWith(color: fg),
               ),
             ),
             IconButton(
-              tooltip: tts.isPlaying.value ? '暂停' : '播放',
+              tooltip: tts.isPlaying.value ? "pause".tr : "play".tr,
               iconSize: 22,
               onPressed: () async {
                 if (tts.isPlaying.value) {
@@ -91,17 +91,10 @@ class _TtsFloatingControllerState extends State<TtsFloatingController> {
                   }
                 }
               },
-              icon: Icon(tts.isPlaying.value ? Icons.pause_circle_filled : Icons.play_circle_filled),
+              icon: Icon(tts.isPlaying.value ? Icons.pause_circle_outline : Icons.play_circle_outline),
             ),
-            IconButton(tooltip: '停止', iconSize: 22, onPressed: () => tts.stop(), icon: const Icon(Icons.stop_circle)),
-            IconButton(
-              tooltip: '退出',
-              iconSize: 22,
-              onPressed: () async {
-                await tts.stop();
-              },
-              icon: const Icon(Icons.close),
-            ),
+            IconButton(tooltip: "stop".tr, iconSize: 22, onPressed: () => tts.stop(), icon: const Icon(Icons.stop_circle_outlined)),
+            IconButton(tooltip: "exit".tr, iconSize: 22, onPressed: () => tts.stop(), icon: const Icon(Icons.close)),
           ],
         ),
       ),

@@ -100,7 +100,7 @@ class LoginPage extends StatelessWidget {
             Obx(
               () => Offstage(
                 offstage: controller.pageState.value != PageState.error,
-                child: ErrorMessage(msg: controller.errorMsg, action: () => Get.offAllNamed(RoutePath.welcome), buttonText: "重新登录"), //TODO
+                child: ErrorMessage(msg: controller.errorMsg, action: () => Get.offAllNamed(RoutePath.welcome), buttonText: "re_login".tr),
               ),
             ),
           ],

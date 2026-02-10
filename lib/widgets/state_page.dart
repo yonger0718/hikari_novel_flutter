@@ -120,3 +120,27 @@ Future showErrorDialog(String msg, List<Widget> actions) {
 
   return Get.dialog(AlertDialog(title: Text("error".tr), content: content, actions: actions));
 }
+
+//参考https://pub.dev/packages/floating_snackbar
+void showSnackBar({
+  required String message, // The message to display in the SnackBar
+  required BuildContext context, // The BuildContext to show the SnackBar within
+  Duration? duration, // Optional: Duration for which the SnackBar is displayed
+  TextStyle? textStyle, // Optional: Text style for the message text
+}) {
+  // Create a SnackBar widget with specified properties
+  var snack = SnackBar(
+    margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 10), // Set margin around the SnackBar
+    duration: duration ?? const Duration(milliseconds: 4000), // Default duration if not provided
+    content: Text(
+      message, // Display the provided message text
+      style: textStyle ?? TextStyle(), // Apply provided or default text style
+    ),
+  );
+
+  // Hide any currently displayed SnackBar
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+  // Show the created SnackBar
+  ScaffoldMessenger.of(context).showSnackBar(snack);
+}

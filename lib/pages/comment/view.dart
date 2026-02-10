@@ -17,7 +17,7 @@ class CommentPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { //TODO 评论自由复制内容
     return Scaffold(
       appBar: AppBar(
         title: Text("comment".tr),
@@ -52,7 +52,7 @@ class CommentPage extends StatelessWidget {
       floatingActionButton: Obx(
         () => Offstage(
           offstage: controller.pageState.value != PageState.success,
-          child: FloatingActionButton(
+          child: FloatingActionButton( //TODO 自动收缩效果
             child: Icon(Icons.comment_outlined),
             onPressed: () {
               Get.dialog(
@@ -77,7 +77,7 @@ class CommentPage extends StatelessWidget {
                   actions: [
                     TextButton(onPressed: Get.back, child: Text("cancel".tr)),
                     TextButton(onPressed: () async {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(await controller.sendComment())));
+                      showSnackBar(message: await controller.sendComment(), context: Get.context!);
                       Get.back();
                     }, child: Text("send".tr)),
                   ],

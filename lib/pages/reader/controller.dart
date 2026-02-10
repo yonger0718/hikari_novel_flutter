@@ -117,8 +117,8 @@ class ReaderController extends GetxController {
     //延迟更新阅读记录
     //debounce / ever / interval 只能在 Controller 生命周期里创建一次
     //TODO 还需要优化
-    interval(location, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
-    interval(currentIndex, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
+    interval(location, (_) => setReadHistory(), time: const Duration(milliseconds: 500));
+    interval(currentIndex, (_) => setReadHistory(), time: const Duration(milliseconds: 500));
   }
 
   @override
@@ -291,9 +291,9 @@ class ReaderController extends GetxController {
     }
   }
 
-  void setReadHistory() {
+  void setReadHistory() async {
     Log.d("setReadHistory");
-    DBService.instance.upsertReadHistory(
+    await DBService.instance.upsertReadHistory(
       ReadHistoryEntityData(
         cid: cid,
         aid: aid,

@@ -124,80 +124,80 @@ class ReaderPage extends StatelessWidget {
                 height: navigationBarHeight + bottomBarHeight,
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 alignment: Alignment.center,
-                child: Column(
-                  children: [
-                    SizedBox(width: double.infinity, child: _buildProgressBar(context)),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: IconButton(
-                            onPressed: () {
-                              if (controller.readerSettingsState.value.direction == ReaderDirection.rightToLeft) {
-                                controller.nextChapter();
-                              } else {
-                                controller.prevChapter();
-                              }
-                            },
-                            icon: const Icon(Icons.arrow_back),
+                child: Obx(
+                  () => Column(
+                    children: [
+                      SizedBox(width: double.infinity, child: _buildProgressBar(context)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () {
+                                if (controller.readerSettingsState.value.direction == ReaderDirection.rightToLeft) {
+                                  controller.nextChapter();
+                                } else {
+                                  controller.prevChapter();
+                                }
+                              },
+                              icon: const Icon(Icons.arrow_back),
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: IconButton(onPressed: () => _showCatalogue(context), icon: const Icon(Icons.list_alt)),
-                        ),
-                        Expanded(
-                          child: IconButton(onPressed: () => Get.toNamed(RoutePath.readerSetting), icon: const Icon(Icons.settings_outlined)),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            tooltip: '听书',
-                            onPressed: () async {
-                              final tts = TtsService.instance;
-                              if (!tts.enabled.value) {
-                                await tts.setEnabled(true);
-                              }
-                              final text = controller.text.value;
-                              final cleaned = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-                              if (cleaned.isEmpty) {
-                                Get.snackbar('提示', '当前章节还在加载中');
-                                return;
-                              }
+                          Expanded(
+                            child: IconButton(onPressed: () => _showCatalogue(context), icon: const Icon(Icons.list_alt)),
+                          ),
+                          Expanded(
+                            child: IconButton(onPressed: () => Get.toNamed(RoutePath.readerSetting), icon: const Icon(Icons.settings_outlined)),
+                          ),
+                          TtsService.instance.enabled.value
+                              ? Expanded(
+                                  child: IconButton(
+                                    tooltip: "listen_to_books".tr,
+                                    onPressed: () async {
+                                      final tts = TtsService.instance;
+                                      final text = controller.text.value;
+                                      final cleaned = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+                                      if (cleaned.isEmpty) {
+                                        showSnackBar(message: "chapter_content_loading_tip".tr, context: context);
+                                        return;
+                                      }
 
-                              // UX: first click => start; second click => stop.
-                              if (tts.isPlaying.value) {
-                                await tts.stop();
-                                return;
-                              }
-                              if (tts.isPaused.value && tts.isSessionActive.value) {
-                                await tts.resumeSession();
-                                return;
-                              }
+                                      if (tts.isPlaying.value) {
+                                        await tts.stop();
+                                        return;
+                                      }
+                                      if (tts.isPaused.value && tts.isSessionActive.value) {
+                                        await tts.resumeSession();
+                                        return;
+                                      }
 
-                              await tts.startChapter(cleaned);
-                            },
-                            icon: Obx(() {
-                              final tts = TtsService.instance;
-                              if (tts.isPlaying.value) {
-                                return const Icon(Icons.stop_circle);
-                              }
-                              return const Icon(Icons.play_circle_fill);
-                            }),
+                                      await tts.startChapter(cleaned);
+                                    },
+                                    icon: Obx(() {
+                                      final tts = TtsService.instance;
+                                      if (tts.isPlaying.value) {
+                                        return const Icon(Icons.stop_circle_outlined);
+                                      }
+                                      return const Icon(Icons.play_circle_outline);
+                                    }),
+                                  ),
+                                )
+                              : Container(),
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () {
+                                if (controller.readerSettingsState.value.direction == ReaderDirection.rightToLeft) {
+                                  controller.prevChapter();
+                                } else {
+                                  controller.nextChapter();
+                                }
+                              },
+                              icon: const Icon(Icons.arrow_forward),
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            onPressed: () {
-                              if (controller.readerSettingsState.value.direction == ReaderDirection.rightToLeft) {
-                                controller.prevChapter();
-                              } else {
-                                controller.nextChapter();
-                              }
-                            },
-                            icon: const Icon(Icons.arrow_forward),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
