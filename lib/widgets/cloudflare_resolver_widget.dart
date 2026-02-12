@@ -46,6 +46,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   bool _timedOut = false;
   bool _handoffInProgress = false;
   bool _likelyEnvironmentBlocked = false;
+  int? _mainFrameStatusCode;
   Timer? _pollTimer;
   DateTime? _interactiveSince;
   late String _currentUrl;
@@ -151,13 +152,17 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         const hasErrorDetails = !!document.querySelector('#cf-error-details');
         const hasContent = !!document.getElementById('content');
         const hasCenters = !!document.getElementById('centers');
+        const blockedText = lowerTitle.includes('sorry, you have been blocked') ||
+          lowerBody.includes('you have been blocked') ||
+          lowerBody.includes('error code 1020') ||
+          lowerBody.includes('access denied');
 
         if (hasTurnstile || document.querySelector('#challenge-stage')) {
           tryAutoClick();
         }
 
         let status = 'passed';
-        if (hasErrorDetails || lowerTitle.includes('access denied')) {
+        if (hasErrorDetails || blockedText) {
           status = 'blocked';
         } else if (document.getElementById('cf-please-wait') || hasCloudflareTitle || hasTurnstile || hasChallengeScript) {
           status = hasTurnstile ? 'interactive' : 'waiting';
@@ -209,7 +214,12 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     if (_resolved || _handoffInProgress) return;
 
     final signals = await _detectPageSignals();
-    final status = signals.status;
+    var status = signals.status;
+
+    // If WebView main-frame returns 403 and it's clearly Cloudflare, treat as blocked.
+    if (_mainFrameStatusCode == 403 && (signals.hasCloudflareTitle || signals.hasChallengeScript || signals.hasTurnstile)) {
+      status = 'blocked';
+    }
 
     if (status == 'interactive') {
       _interactiveSince ??= DateTime.now();
@@ -330,6 +340,15 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     }
 
     if (manualTrigger && mounted) {
+      if (status == 'blocked') {
+        Get.snackbar(
+          "Cloudflare",
+          "目前節點疑似被封鎖（403），無法在 App 內自動通關。請切換節點或更換網路後重試。",
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
       Get.snackbar(
         "Cloudflare",
         "請先在下方完成 Turnstile 驗證，再按一次繼續",
@@ -460,6 +479,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
                   final uri = await controller.getUrl();
                   if (uri != null) _syncCookies(uri);
                 },
+                onReceivedHttpError: (controller, request, response) {
+                  if (request.isForMainFrame == true) {
+                    _mainFrameStatusCode = response.statusCode;
+                  }
+                },
                 onConsoleMessage: (controller, consoleMessage) {
                   _handleConsoleHint(consoleMessage.message);
                   _detectPageSignals().then((signals) {
@@ -502,6 +526,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
                 onTitleChanged: (controller, title) async {
                   final uri = await controller.getUrl();
                   if (uri != null) _syncCookies(uri);
+                },
+                onReceivedHttpError: (controller, request, response) {
+                  if (request.isForMainFrame == true) {
+                    _mainFrameStatusCode = response.statusCode;
+                  }
                 },
                 onConsoleMessage: (controller, consoleMessage) {
                   _handleConsoleHint(consoleMessage.message);
