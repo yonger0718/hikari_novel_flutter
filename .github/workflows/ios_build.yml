@@ -9,6 +9,8 @@ jobs:
   build_ios:
     name: Build IPA
     runs-on: macos-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
@@ -49,3 +51,20 @@ jobs:
         with:
           name: hikari-novel-ipa
           path: build/ios/iphoneos/hikari_novel_flutter.ipa
+
+      - name: Get Version from pubspec
+        id: get_version
+        run: |
+          VERSION=$(grep 'version: ' pubspec.yaml | sed 's/version: //')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}-cf-${{ github.run_number }}
+          name: CF Dev Release v${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: true
+          files: build/ios/iphoneos/hikari_novel_flutter.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
