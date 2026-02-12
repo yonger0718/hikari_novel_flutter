@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/widgets/custom_tile.dart';
-import 'package:hikari_novel_flutter/widgets/state_page.dart';
 
 import '../pages/bookshelf/controller.dart';
 import '../widgets/bottom_action_bar.dart';
@@ -92,7 +91,7 @@ class CommonWidgets {
                     context: context,
                     builder: (_) => Dialog(
                       child: Padding(
-                        padding: const .symmetric(horizontal: 20, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: SelectableText(content, style: const TextStyle(fontSize: 15, height: 1.7)),
                       ),
                     ),

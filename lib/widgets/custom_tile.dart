@@ -20,7 +20,7 @@ class NormalTile extends StatelessWidget {
       leading: leading,
       trailing: Padding(
         padding: EdgeInsets.only(right: 4),
-        child: Transform.scale(scale: 0.9, alignment: .centerRight, child: trailing),
+        child: Transform.scale(scale: 0.9, alignment: Alignment.centerRight, child: trailing),
       ),
     );
   }
@@ -45,7 +45,7 @@ class SwitchTile extends StatelessWidget {
       leading: leading,
       trailing: Transform.scale(
         scale: 0.9,
-        alignment: .centerRight,
+        alignment: Alignment.centerRight,
         child: Switch(value: value, onChanged: onChanged),
       ),
     );
@@ -110,7 +110,7 @@ class RadioListDialog<T> extends StatelessWidget {
       constraints: subtitleBuilder != null ? const BoxConstraints(maxWidth: 320, minWidth: 320) : null,
       contentPadding: const EdgeInsets.symmetric(vertical: 12),
       content: Material(
-        type: .transparency,
+        type: MaterialType.transparency,
         child: SingleChildScrollView(
           child: RadioGroup<T>(
             onChanged: (v) => Navigator.of(context).pop(v ?? value),
@@ -151,7 +151,7 @@ class NormalListDialog<T> extends StatelessWidget {
       constraints: subtitleBuilder != null ? const BoxConstraints(maxWidth: 320, minWidth: 320) : null,
       contentPadding: const EdgeInsets.symmetric(vertical: 12),
       content: Material(
-        type: .transparency,
+        type: MaterialType.transparency,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
