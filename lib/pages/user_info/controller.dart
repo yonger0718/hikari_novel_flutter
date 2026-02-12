@@ -25,9 +25,14 @@ class UserInfoController extends GetxController {
     switch (data) {
       case Success():
         {
-          userInfo.value = Parser.getUserInfo(data.data);
-          LocalStorageService.instance.setUserInfo(userInfo.value!);
-          pageState.value = PageState.success;
+          try {
+            userInfo.value = Parser.getUserInfo(data.data);
+            LocalStorageService.instance.setUserInfo(userInfo.value!);
+            pageState.value = PageState.success;
+          } catch (_) {
+            errorMsg = "Cloudflare Challenge Detected (UserInfo Parse Failed)";
+            pageState.value = PageState.error;
+          }
         }
       case Error():
         {

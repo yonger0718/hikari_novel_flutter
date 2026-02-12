@@ -5,7 +5,6 @@ import 'package:hikari_novel_flutter/main.dart';
 import 'package:hikari_novel_flutter/models/page_state.dart';
 import 'package:hikari_novel_flutter/widgets/state_page.dart';
 
-import '../../router/route_path.dart';
 import 'controller.dart';
 
 class LoginPage extends StatelessWidget {
@@ -100,7 +99,11 @@ class LoginPage extends StatelessWidget {
             Obx(
               () => Offstage(
                 offstage: controller.pageState.value != PageState.error,
-                child: ErrorMessage(msg: controller.errorMsg, action: () => Get.offAllNamed(RoutePath.welcome), buttonText: "re_login".tr),
+                child: ErrorMessage(
+                  msg: controller.errorMsg,
+                  action: controller.handleErrorAction,
+                  buttonText: "refresh_web_page".tr,
+                ),
               ),
             ),
           ],

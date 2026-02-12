@@ -36,20 +36,40 @@ abstract class BaseSelectListPageController<T> extends GetxController {
 
     switch (result) {
       case Success(): {
-        if (!loadMore) {
-          _maxNum = Parser.getMaxNum(result.data);
+        try {
+          if (!loadMore) {
+            _maxNum = Parser.getMaxNum(result.data);
+          }
+          data.addAll(getParser(result.data));
+          pageState.value = PageState.success;
+          return IndicatorResult.success;
+        } catch (_) {
+          if (!loadMore) {
+            pageState.value = PageState.error;
+            errorMsg = "Cloudflare Challenge Detected (Parse Failed)";
+          } else {
+            showErrorDialog(
+              "Cloudflare Challenge Detected (Parse Failed)",
+              [TextButton(onPressed: Get.back, child: Text("confirm".tr))],
+              action: () => getPage(true),
+            );
+          }
+          if (_index > 0) {
+            _index -= 1;
+          }
+          return IndicatorResult.fail;
         }
-        data.addAll(getParser(result.data));
-
-        pageState.value = PageState.success;
-        return IndicatorResult.success;
       }
       case Error(): {
         if (!loadMore) {
           pageState.value = PageState.error;
           errorMsg = result.error;
         } else {
-          showErrorDialog(result.error.toString(), [TextButton(onPressed: Get.back, child: Text("confirm".tr))]);
+          showErrorDialog(
+            result.error.toString(),
+            [TextButton(onPressed: Get.back, child: Text("confirm".tr))],
+            action: () => getPage(true),
+          );
         }
         if (_index > 0) {
           _index -= 1;

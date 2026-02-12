@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hikari_novel_flutter/widgets/cloudflare_resolver_widget.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:wx_divider/wx_divider.dart';
 
 class ErrorMessage extends StatelessWidget {
   const ErrorMessage({super.key, required this.msg, required this.action, this.buttonText = "retry", this.iconData = Icons.refresh});
@@ -13,6 +13,13 @@ class ErrorMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (msg.contains("Cloudflare Challenge Detected")) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: _CloudflareAutoResolver(action: action, errorMsg: msg),
+      );
+    }
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -31,11 +38,44 @@ class ErrorMessage extends StatelessWidget {
   }
 
   Widget _buildErrorInfo() {
-    if (msg.contains("Cloudflare Challenge Detected")) {
-      return _getCommonErrorInfoView(msg);
-    } else {
-      return SingleChildScrollView(child: Text(msg));
+    return SingleChildScrollView(child: Text(msg));
+  }
+}
+
+/// 偵測到 Cloudflare 挑戰時，嵌入 WebView 協助通關（可手動互動）
+class _CloudflareAutoResolver extends StatelessWidget {
+  final Function()? action;
+  final String errorMsg;
+
+  const _CloudflareAutoResolver({required this.action, required this.errorMsg});
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract URL from error message like "... [URL: https://...]"
+    String? challengeUrl;
+    final urlMatch = RegExp(r'\[URL: ([^\]]+)\]').firstMatch(errorMsg);
+    if (urlMatch != null) {
+      challengeUrl = urlMatch.group(1);
     }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          "cloudflare_challenge_exception_tip".tr,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        // 內嵌式自動解決 widget
+        CloudflareResolverWidget(
+          targetUrl: challengeUrl,
+          enableManualPass: true,
+          onResolved: () {
+            if (action != null) action!();
+          },
+        ),
+      ],
+    );
   }
 }
 
@@ -99,21 +139,11 @@ class EmptyPage extends StatelessWidget {
   }
 }
 
-Widget _getCommonErrorInfoView(String msg) => SingleChildScrollView(
-  child: Column(
-    children: [
-      Text("cloudflare_challenge_exception_tip".tr),
-      const WxDivider(pattern: WxDivider.dashed, child: Text("Raw Message")),
-      const SizedBox(height: 6),
-      Text(msg),
-    ],
-  ),
-);
-
-Future showErrorDialog(String msg, List<Widget> actions) {
+Future showErrorDialog(String msg, List<Widget> actions, {Function()? action}) {
   late Widget content;
+
   if (msg.contains("Cloudflare Challenge Detected")) {
-    content = _getCommonErrorInfoView(msg);
+    content = _CloudflareAutoResolver(action: action, errorMsg: msg);
   } else {
     content = SingleChildScrollView(child: Text(msg));
   }

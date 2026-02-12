@@ -88,6 +88,18 @@ class BookshelfPage extends StatelessWidget {
             showSnackBar(message: "refresh_bookshelf_tip".tr, context: Get.context!);
             final string = await controller.refreshBookshelf();
             showSnackBar(message: string, context: Get.context!);
+            if (controller.lastErrorMsg.contains("Cloudflare Challenge Detected")) {
+              await showErrorDialog(
+                controller.lastErrorMsg,
+                [TextButton(onPressed: Get.back, child: Text("close".tr))],
+                action: () async {
+                  if (Get.isDialogOpen ?? false) Get.back();
+                  showSnackBar(message: "refresh_bookshelf_tip".tr, context: Get.context!);
+                  final retryResult = await controller.refreshBookshelf();
+                  showSnackBar(message: retryResult, context: Get.context!);
+                },
+              );
+            }
           },
           icon: const Icon(Icons.sync),
         ),

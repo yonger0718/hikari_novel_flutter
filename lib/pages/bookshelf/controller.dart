@@ -19,6 +19,7 @@ class BookshelfController extends GetxController with GetTickerProviderStateMixi
   final List tabs = ["0", "1", "2", "3", "4", "5"];
 
   RxBool isSelectionMode = false.obs;
+  String lastErrorMsg = "";
 
   @override
   void onInit() {
@@ -32,34 +33,49 @@ class BookshelfController extends GetxController with GetTickerProviderStateMixi
   }
 
   Future<String> refreshBookshelf() async {
+    lastErrorMsg = "";
     await DBService.instance.deleteAllBookshelf();
 
-    final futures = Iterable.generate(6, (index) async {
+    bool hasFailure = false;
+    for (int index = 0; index < 6; index++) {
       final result = await _insertAll(index);
-      if (!result) return "update_failed".tr;
-    });
-    await Future.wait(futures);
-    return "update_successfully".tr;
+      if (!result) {
+        hasFailure = true;
+      }
+      // Avoid burst traffic that may trigger Cloudflare risk controls.
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    return hasFailure ? "update_failed".tr : "update_successfully".tr;
   }
 
   Future<bool> _insertAll(int index) async {
-    final result = await Api.getBookshelf(classId: index);
-    switch (result) {
-      case Success():
-        {
-          final bookshelf = Parser.getBookshelf(result.data, index);
-          if (bookshelf.list.isNotEmpty) {
-            final insertData = bookshelf.list.map((e) {
-              return BookshelfEntityData(aid: e.aid, bid: e.bid, url: e.url, title: e.title, img: e.img, classId: bookshelf.classId.toString());
-            });
-            await DBService.instance.insertAllBookshelf(insertData);
+    try {
+      final result = await Api.getBookshelf(classId: index);
+      switch (result) {
+        case Success():
+          {
+            final bookshelf = Parser.getBookshelf(result.data, index);
+            if (bookshelf.list.isNotEmpty) {
+              final insertData = bookshelf.list.map((e) {
+                return BookshelfEntityData(aid: e.aid, bid: e.bid, url: e.url, title: e.title, img: e.img, classId: bookshelf.classId.toString());
+              });
+              await DBService.instance.insertAllBookshelf(insertData);
+            }
+            return true;
           }
-          return true;
-        }
-      case Error():
-        {
-          return false;
-        }
+        case Error():
+          {
+            if (lastErrorMsg.isEmpty || !lastErrorMsg.contains("Cloudflare Challenge Detected")) {
+              lastErrorMsg = result.error;
+            }
+            return false;
+          }
+      }
+    } catch (e) {
+      if (lastErrorMsg.isEmpty || !lastErrorMsg.contains("Cloudflare Challenge Detected")) {
+        lastErrorMsg = e.toString();
+      }
+      return false;
     }
   }
 }

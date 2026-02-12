@@ -57,7 +57,8 @@ class LocalStorageService extends GetxService {
       kReaderTtsRate = "readerTtsRate",
       kDevModeEnabled = "devModeEnabled",
       kReaderTtsPitch = "readerTtsPitch",
-      kReaderTtsVolume = "readerTtsVolume";
+      kReaderTtsVolume = "readerTtsVolume",
+      kWebViewUA = "webViewUserAgent";
 
   Future<void> init() async {
     final Directory dir = await getApplicationSupportDirectory();
@@ -234,4 +235,8 @@ class LocalStorageService extends GetxService {
   bool getDevModeEnabled() => _setting.get(kDevModeEnabled, defaultValue: false);
 
   void setDevModeEnabled(bool value) => _setting.put(kDevModeEnabled, value);
+
+  void setWebViewUA(String? value) => _loginInfo.put(kWebViewUA, value);
+
+  String? getWebViewUA() => _loginInfo.get(kWebViewUA);
 }

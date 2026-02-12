@@ -25,10 +25,16 @@ class RecommendController extends GetxController {
     final result = await Api.getRecommend();
     switch (result) {
       case Success():
-        data.clear();
-        data.addAll(Parser.getRecommend(result.data));
-        pageState.value = PageState.success;
-        return IndicatorResult.success;
+        try {
+          data.clear();
+          data.addAll(Parser.getRecommend(result.data));
+          pageState.value = PageState.success;
+          return IndicatorResult.success;
+        } catch (_) {
+          errorMsg = "Cloudflare Challenge Detected (Recommend Parse Failed)";
+          pageState.value = PageState.error;
+          return IndicatorResult.fail;
+        }
       case Error():
         errorMsg = result.error;
         pageState.value = PageState.error;
