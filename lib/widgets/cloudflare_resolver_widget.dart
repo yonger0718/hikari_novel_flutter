@@ -277,7 +277,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     // Some Cloudflare modes don't expose cf_clearance to app-side cookie APIs.
     // If challenge page already turns into target page content, allow handoff.
     final canResolve = (hasClearance && status == 'passed') ||
-        (reachedTargetPath && expectedDomReady && !signals.hasChallenge);
+        (reachedTargetPath && expectedDomReady && !signals.hasChallenge) ||
+        // Manual "continue" should be able to hand off even if DOM heuristics are too strict,
+        // as long as the page is no longer a challenge page.
+        (manualTrigger && status == 'passed' && reachedTargetPath && !signals.hasChallenge);
 
     if (kDebugMode) {
       print(
@@ -318,7 +321,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       }
       // 短暫延遲確保 cookie 生效
       await Future.delayed(const Duration(milliseconds: 500));
-      widget.onResolved?.call();
+      try {
+        widget.onResolved?.call();
+      } finally {
+        _handoffInProgress = false;
+      }
       return;
     }
 
@@ -554,6 +561,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   Future<void> _onManualContinuePressed() async {
     final uri = await _webViewController?.getUrl();
     if (uri == null) return;
+    if (kDebugMode) {
+      print('CloudflareResolver: Manual continue pressed, url=$uri');
+    }
     await _syncCookies(uri, manualTrigger: true);
   }
 

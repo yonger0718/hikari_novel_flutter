@@ -71,7 +71,14 @@ class _CloudflareAutoResolver extends StatelessWidget {
           targetUrl: challengeUrl,
           enableManualPass: true,
           onResolved: () {
-            if (action != null) action!();
+            // If this resolver is shown inside a dialog, close it first so the retry is visible.
+            if (Get.isDialogOpen ?? false) {
+              Get.back();
+            }
+            // Trigger the retry/reload callback.
+            if (action != null) {
+              Future.microtask(() => action!());
+            }
           },
         ),
       ],
