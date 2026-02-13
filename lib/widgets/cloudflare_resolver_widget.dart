@@ -157,6 +157,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           !!document.querySelector('input[name="checkall"]') ||
           !!document.querySelector('select[name="newclassid"]') ||
           lowerBody.includes('newclassid');
+        const readyState = (document.readyState || "").toLowerCase();
         const blockedText = lowerTitle.includes('sorry, you have been blocked') ||
           lowerBody.includes('you have been blocked') ||
           lowerBody.includes('error code 1020') ||
@@ -180,6 +181,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           hasContent,
           hasCenters,
           hasBookcaseControls,
+          readyState,
           hasTurnstile,
           hasChallengeScript,
           hasCloudflareTitle,
@@ -208,6 +210,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         hasContent: map['hasContent'] == true,
         hasCenters: map['hasCenters'] == true,
         hasBookcaseControls: map['hasBookcaseControls'] == true,
+        readyState: map['readyState']?.toString() ?? '',
         hasTurnstile: map['hasTurnstile'] == true,
         hasChallengeScript: map['hasChallengeScript'] == true,
         hasCloudflareTitle: map['hasCloudflareTitle'] == true,
@@ -444,6 +447,18 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           ),
         ],
 
+        // "passed" without "resolved" means the interstitial is gone but the target page might still be loading/redirecting.
+        if (_status == 'passed' && !_resolved) ...[
+          const SizedBox(height: 12),
+          const Icon(Icons.check_circle, size: 28, color: Colors.green),
+          const SizedBox(height: 6),
+          Text(
+            "驗證通過，等待頁面載入完成...",
+            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ],
+
         if (_resolved) ...[
           const SizedBox(height: 16),
           Icon(Icons.check_circle, color: Colors.green, size: 32),
@@ -544,6 +559,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
             ),
           ),
           const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => _webViewController?.reload(),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text("重新載入頁面"),
+          ),
           FilledButton.icon(
             onPressed: _onManualContinuePressed,
             icon: const Icon(Icons.check),
@@ -700,11 +720,12 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
 
   bool _hasExpectedDomForTarget(WebUri currentUri, _PageSignals signals) {
     final path = currentUri.path.toLowerCase();
+    final domStable = signals.readyState == 'interactive' || signals.readyState == 'complete';
     if (path.contains('/index.php')) return signals.hasCenters || signals.hasContent;
-    if (path.contains('/userdetail.php')) return signals.hasContent;
-    if (path.contains('/modules/article/articleinfo.php')) return signals.hasContent;
-    if (path.contains('/modules/article/bookcase.php')) return signals.hasContent && signals.hasBookcaseControls;
-    return signals.hasContent || signals.hasCenters;
+    if (path.contains('/userdetail.php')) return domStable && signals.hasContent;
+    if (path.contains('/modules/article/articleinfo.php')) return domStable && signals.hasContent;
+    if (path.contains('/modules/article/bookcase.php')) return domStable && signals.hasContent && signals.hasBookcaseControls;
+    return domStable && (signals.hasContent || signals.hasCenters);
   }
 
   String _replaceHostWithNode(String url, Wenku8Node node) {
@@ -752,6 +773,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       'effectiveUrl': effectiveUri.toString(),
       'title': signals.title,
       'status': signals.status,
+      'readyState': signals.readyState,
+      'hasContent': signals.hasContent,
+      'hasCenters': signals.hasCenters,
+      'hasBookcaseControls': signals.hasBookcaseControls,
+      'expectedDomReady': _hasExpectedDomForTarget(effectiveUri, signals),
       'mainFrameStatusCode': _mainFrameStatusCode,
       'reachedTargetPath': _isSamePathAsTarget(effectiveUri),
       'hasChallenge': signals.hasChallenge,
@@ -792,6 +818,7 @@ class _PageSignals {
   final bool hasChallengeScript;
   final bool hasCloudflareTitle;
   final bool hasBookcaseControls;
+  final String readyState;
 
   const _PageSignals({
     required this.status,
@@ -803,6 +830,7 @@ class _PageSignals {
     this.hasChallengeScript = false,
     this.hasCloudflareTitle = false,
     this.hasBookcaseControls = false,
+    this.readyState = '',
   });
 
   bool get hasChallenge => hasTurnstile || hasChallengeScript || hasCloudflareTitle;

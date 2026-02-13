@@ -220,12 +220,27 @@ class NovelDetailController extends GetxController with GetSingleTickerProviderS
 
     switch (nd) {
       case Success():
-        data = Parser.getNovelDetail(nd.data);
+        try {
+          data = Parser.getNovelDetail(nd.data);
+        } catch (e) {
+          // If HTML is not the expected detail page (e.g. interstitial/partial page), avoid crashing.
+          if (await _getNovelDetailByLocal()) return;
+          errorMsg = e.toString();
+          pageState.value = PageState.error;
+          return;
+        }
         final cat = await Api.getCatalogue(aid: aid);
         switch (cat) {
           case Success():
             {
-              data.catalogue.addAll(Parser.getCatalogue(cat.data));
+              try {
+                data.catalogue.addAll(Parser.getCatalogue(cat.data));
+              } catch (e) {
+                if (await _getNovelDetailByLocal()) return;
+                errorMsg = e.toString();
+                pageState.value = PageState.error;
+                return;
+              }
               novelDetail.value = data;
 
               DBService.instance.upsertBrowsingHistory(BrowsingHistoryEntityData(aid: aid, title: data.title, img: data.imgUrl, time: DateTime.now()));
