@@ -319,7 +319,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           source: 'document.documentElement.outerHTML',
         );
         if (rawHtml != null) {
-          Request.setLastResolvedHtmlSnapshot(rawHtml.toString());
+          Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, rawHtml.toString());
         }
       } catch (_) {}
 

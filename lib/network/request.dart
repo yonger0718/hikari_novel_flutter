@@ -28,16 +28,40 @@ class Request {
   static final _dioCookieJar = ckjar.CookieJar();
   static ckjar.CookieJar get cookieJar => _dioCookieJar;
   static String? _lastResolvedHtmlSnapshot;
+  static String? _lastResolvedHtmlSnapshotKey;
   static Future<void> _webViewQueue = Future.value();
 
   static void setLastResolvedHtmlSnapshot(String html) {
     _lastResolvedHtmlSnapshot = html;
+    _lastResolvedHtmlSnapshotKey = null;
   }
 
   static String? consumeLastResolvedHtmlSnapshot() {
     final value = _lastResolvedHtmlSnapshot;
     _lastResolvedHtmlSnapshot = null;
+    _lastResolvedHtmlSnapshotKey = null;
     return value;
+  }
+
+  static String _snapshotKey(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final qp = Map<String, String>.from(uri.queryParameters);
+    qp.removeWhere((k, _) => k.startsWith('__cf') || k.startsWith('cf_chl'));
+    final entries = qp.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final query = entries.map((e) => '${e.key}=${e.value}').join('&');
+    return '${uri.scheme}://${uri.host}${uri.path}?$query';
+  }
+
+  static void setLastResolvedHtmlSnapshotForUrl(String url, String html) {
+    _lastResolvedHtmlSnapshot = html;
+    _lastResolvedHtmlSnapshotKey = _snapshotKey(url);
+  }
+
+  static String? consumeLastResolvedHtmlSnapshotForUrl(String url) {
+    final key = _snapshotKey(url);
+    if (_lastResolvedHtmlSnapshotKey == null || _lastResolvedHtmlSnapshotKey != key) return null;
+    return consumeLastResolvedHtmlSnapshot();
   }
   static final Dio dio = Dio(
     BaseOptions(
@@ -337,6 +361,13 @@ class Request {
           url += "&charset=gbk";
         case CharsetsType.big5Hkscs:
           url += "&charset=big5";
+      }
+
+      // If the user just solved Cloudflare in an interactive WebView, use the captured HTML once.
+      final resolvedSnapshot = consumeLastResolvedHtmlSnapshotForUrl(url);
+      if (resolvedSnapshot != null && resolvedSnapshot.isNotEmpty && _looksLikeExpectedHtml(url, resolvedSnapshot)) {
+        Log.d("Cloudflare snapshot used: $url");
+        return Success(resolvedSnapshot);
       }
 
       Log.d("$url ${charsetsType.name}");
