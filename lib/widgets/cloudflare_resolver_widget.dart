@@ -319,7 +319,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           source: 'document.documentElement.outerHTML',
         );
         if (rawHtml != null) {
-          Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, rawHtml.toString());
+          // iOS/WKWebView often returns a JSON-escaped string. Normalize it before caching.
+          final normalized = _normalizeHtmlFromJsResult(rawHtml.toString());
+          Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, normalized);
         }
       } catch (_) {}
 
@@ -658,6 +660,19 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     return DateTime.fromMillisecondsSinceEpoch(normalizedMs);
   }
 
+  String _normalizeHtmlFromJsResult(String raw) {
+    // Try JSON decode first: some platforms return a quoted/escaped JSON string.
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is String) return decoded;
+    } catch (_) {}
+
+    // Fallback: remove wrapping quotes and unescape common sequences.
+    final s = raw.toString();
+    final unwrapped = s.replaceAll(RegExp(r'^"|"$'), '');
+    return unwrapped.replaceAll(r'\"', '"').replaceAll(r'\\n', '\n').replaceAll(r'\\t', '\t');
+  }
+
   bool _isSamePathAsTarget(WebUri currentUri) {
     final targetUri = Uri.tryParse(_currentUrl);
     if (targetUri == null) return false;
@@ -683,6 +698,20 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     final signals = await _detectPageSignals();
     final cookies = await _cookieManager.getCookies(url: effectiveUri);
     final cookieNames = cookies.map((c) => c.name).toList()..sort();
+    final cookieDetails = cookies
+        .map(
+          (c) => <String, Object?>{
+            'name': c.name,
+            'domain': c.domain,
+            'path': c.path,
+            'expiresDate': c.expiresDate,
+            'isHttpOnly': c.isHttpOnly,
+            'isSecure': c.isSecure,
+            'isSessionOnly': c.isSessionOnly,
+            'sameSite': c.sameSite,
+          },
+        )
+        .toList();
 
     String? webViewUA;
     try {
@@ -703,6 +732,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       'hasCloudflareTitle': signals.hasCloudflareTitle,
       'cookieCount': cookies.length,
       'cookieNames': cookieNames,
+      'cookieDetails': cookieDetails,
       'webViewUA': webViewUA,
       'savedUA': LocalStorageService.instance.getWebViewUA(),
       'node': LocalStorageService.instance.getWenku8Node().node,
