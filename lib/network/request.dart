@@ -224,7 +224,10 @@ class Request {
   // Headless WebView fallback is only useful for a few flows.
   // For most pages (e.g. detail/tags) Turnstile requires visible user interaction.
   static bool _shouldUseHeadlessFallback(String url) {
-    return url.contains('/userdetail.php') || url.contains('/modules/article/bookcase.php') || url.contains('/index.php');
+    return url.contains('/userdetail.php') ||
+        url.contains('/modules/article/bookcase.php') ||
+        url.contains('/modules/article/articleinfo.php') ||
+        url.contains('/index.php');
   }
 
   static List<ckjar.Cookie> _webViewCookiesToJar(List<dynamic> cookies) {

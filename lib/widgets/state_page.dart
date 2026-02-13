@@ -78,7 +78,27 @@ class _CloudflareAutoResolver extends StatelessWidget {
               }
               // Trigger the retry/reload callback.
               if (action != null) {
-                Future.microtask(() => action!());
+                Future.microtask(() async {
+                  try {
+                    Get.snackbar(
+                      "Cloudflare",
+                      "驗證通過，正在重新請求...",
+                      snackPosition: SnackPosition.BOTTOM,
+                      duration: const Duration(seconds: 2),
+                    );
+                    final r = action!.call();
+                    if (r is Future) {
+                      await r;
+                    }
+                  } catch (e) {
+                    Get.snackbar(
+                      "Cloudflare",
+                      "重新請求失敗：$e",
+                      snackPosition: SnackPosition.BOTTOM,
+                      duration: const Duration(seconds: 3),
+                    );
+                  }
+                });
               }
             },
           ),
