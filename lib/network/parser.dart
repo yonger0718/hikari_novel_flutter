@@ -106,10 +106,23 @@ class Parser {
     bool isOffShelves = false;
     final Document document = parse(html);
     final Element? t1 = document.getElementById('content');
-    final Element t2 = t1!.getElementsByTagName('table')[0];
+    if (t1 == null) {
+      throw StateError("Element with id 'content' not found");
+    }
+    final tables = t1.getElementsByTagName('table');
+    if (tables.isEmpty) {
+      throw StateError("Novel detail page table not found");
+    }
+    final Element t2 = tables[0];
     final String title = t2.querySelector('span > b')?.text.trim() ?? '';
     final trs = t2.getElementsByTagName('tr');
+    if (trs.length < 3) {
+      throw StateError("Novel detail page rows not found");
+    }
     final tds = trs[2].getElementsByTagName('td');
+    if (tds.length < 4) {
+      throw StateError("Novel detail page columns not found");
+    }
     final String author = tds[1].text.trim().substring(5);
     final String status = tds[2].text.trim().substring(5);
     String finUpdate;

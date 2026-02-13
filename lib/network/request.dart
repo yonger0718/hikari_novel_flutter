@@ -213,6 +213,10 @@ class Request {
           lower.contains('newclassid');
       return hasContent && hasBookshelfControls;
     }
+    if (url.contains('/modules/article/articleinfo.php')) {
+      // Novel detail page is parsed via #content -> tables, so require #content.
+      return lower.contains('id="content"') || lower.contains("id='content'");
+    }
     if (url.contains('/index.php')) {
       final hasCenters = lower.contains('id="centers"') || lower.contains("id='centers'");
       final hasRecommendBlock = lower.contains('class="blocktitle"') || lower.contains("class='blocktitle'");

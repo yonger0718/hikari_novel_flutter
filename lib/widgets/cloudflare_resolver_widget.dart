@@ -153,6 +153,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         const hasErrorDetails = !!document.querySelector('#cf-error-details');
         const hasContent = !!document.getElementById('content');
         const hasCenters = !!document.getElementById('centers');
+        const hasBookcaseControls =
+          !!document.querySelector('input[name="checkall"]') ||
+          !!document.querySelector('select[name="newclassid"]') ||
+          lowerBody.includes('newclassid');
         const blockedText = lowerTitle.includes('sorry, you have been blocked') ||
           lowerBody.includes('you have been blocked') ||
           lowerBody.includes('error code 1020') ||
@@ -175,6 +179,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           href,
           hasContent,
           hasCenters,
+          hasBookcaseControls,
           hasTurnstile,
           hasChallengeScript,
           hasCloudflareTitle,
@@ -202,6 +207,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         href: map['href']?.toString() ?? '',
         hasContent: map['hasContent'] == true,
         hasCenters: map['hasCenters'] == true,
+        hasBookcaseControls: map['hasBookcaseControls'] == true,
         hasTurnstile: map['hasTurnstile'] == true,
         hasChallengeScript: map['hasChallengeScript'] == true,
         hasCloudflareTitle: map['hasCloudflareTitle'] == true,
@@ -296,12 +302,12 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     // If the WebView is already at the target path and no longer looks like a Cloudflare interstitial,
     // allow handoff even if DOM heuristics are imperfect.
     final canResolve =
-        (hasClearance && status == 'passed') ||
-        (reachedTargetPath && status == 'passed' && mainFrameOk && !signals.hasChallenge) ||
-        // Keep the old "expected DOM" shortcut as an extra safety net.
-        (reachedTargetPath && expectedDomReady && mainFrameOk && !signals.hasChallenge) ||
-        // Manual "continue" should be able to hand off even if cookie APIs are empty on some devices.
-        (manualTrigger && reachedTargetPath && status == 'passed' && mainFrameOk && !signals.hasChallenge);
+        // If we have clearance, still require expected DOM so we don't hand off too early (blank/intermediate page).
+        (hasClearance && status == 'passed' && expectedDomReady) ||
+        // Without explicit clearance visibility, require expected DOM and no challenge hints.
+        (reachedTargetPath && status == 'passed' && expectedDomReady && mainFrameOk && !signals.hasChallenge) ||
+        // Manual "continue" can re-trigger the checks, but still shouldn't hand off until DOM is ready.
+        (manualTrigger && reachedTargetPath && status == 'passed' && expectedDomReady && mainFrameOk && !signals.hasChallenge);
 
     if (kDebugMode) {
       print(
@@ -357,6 +363,15 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         Get.snackbar(
           "Cloudflare",
           "目前仍無法取得 Cookie（可能尚未真正通過或 WebView Cookie API 受限），請稍後再按一次或改用其他網路/節點。",
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      if (status == 'passed' && !expectedDomReady) {
+        Get.snackbar(
+          "Cloudflare",
+          "已通過驗證，但頁面尚未載入完成，請稍等 2-3 秒再按一次「繼續」。",
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 3),
         );
@@ -686,6 +701,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   bool _hasExpectedDomForTarget(WebUri currentUri, _PageSignals signals) {
     final path = currentUri.path.toLowerCase();
     if (path.contains('/index.php')) return signals.hasCenters || signals.hasContent;
+    if (path.contains('/userdetail.php')) return signals.hasContent;
+    if (path.contains('/modules/article/articleinfo.php')) return signals.hasContent;
+    if (path.contains('/modules/article/bookcase.php')) return signals.hasContent && signals.hasBookcaseControls;
     return signals.hasContent || signals.hasCenters;
   }
 
@@ -773,6 +791,7 @@ class _PageSignals {
   final bool hasTurnstile;
   final bool hasChallengeScript;
   final bool hasCloudflareTitle;
+  final bool hasBookcaseControls;
 
   const _PageSignals({
     required this.status,
@@ -783,6 +802,7 @@ class _PageSignals {
     this.hasTurnstile = false,
     this.hasChallengeScript = false,
     this.hasCloudflareTitle = false,
+    this.hasBookcaseControls = false,
   });
 
   bool get hasChallenge => hasTurnstile || hasChallengeScript || hasCloudflareTitle;
