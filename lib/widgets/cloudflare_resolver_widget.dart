@@ -344,8 +344,8 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
             // If fetched HTML looks like the expected target page, cache and resolve.
             final lower = fetched.toLowerCase();
             final okForDetail = uri.path.toLowerCase().contains('/modules/article/articleinfo.php') &&
-                (lower.contains('id=\"content\"') || lower.contains(\"id='content'\"));
-            final okForAny = okForDetail || (lower.contains('id=\"content\"') || lower.contains(\"id='content'\") || lower.contains('id=\"centers\"'));
+                (lower.contains('id="content"') || lower.contains("id='content'"));
+            final okForAny = okForDetail || (lower.contains('id="content"') || lower.contains("id='content'") || lower.contains('id="centers"'));
             if (okForAny && !_looksLikeCloudflareFallbackHtml(lower)) {
               Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, fetched);
               if (kDebugMode) {
@@ -931,7 +931,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       final decoded = jsonDecode(raw);
       if (decoded is String) normalized = decoded;
     } catch (_) {
-      normalized = raw.replaceAll(RegExp(r'^\"|\"$'), '').replaceAll(r'\\\"', '\"');
+      normalized = raw.replaceAll(RegExp(r'^"|"$'), '').replaceAll(r'\\"', '"');
     }
     final map = jsonDecode(normalized);
     if (map is! Map) return null;
