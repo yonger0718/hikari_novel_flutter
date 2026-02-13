@@ -764,12 +764,20 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   }
 
   Future<void> _onManualContinuePressed() async {
-    final uri = await _webViewController?.getUrl();
-    if (uri == null) return;
-    if (kDebugMode) {
-      print('CloudflareResolver: Manual continue pressed, url=$uri');
+    // On iOS/WKWebView, `getUrl()` can be null (or throw) on some interstitial/blank DOM states
+    // even though we do have a target URL. Don't early-return, otherwise the button looks "dead".
+    Uri? uri;
+    try {
+      uri = await _webViewController?.getUrl();
+    } catch (_) {
+      uri = null;
     }
-    await _syncCookies(uri, manualTrigger: true);
+    final effective = uri?.toString() ?? _currentUrl;
+    if (effective.isEmpty) return;
+    if (kDebugMode) {
+      print('CloudflareResolver: Manual continue pressed, url=$effective (getUrlIsNull=${uri == null})');
+    }
+    await _syncCookies(WebUri(effective), manualTrigger: true);
   }
 
   Future<void> _switchNodeAndRetry() async {
@@ -882,6 +890,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     final payload = <String, Object?>{
       'targetUrl': _currentUrl,
       'effectiveUrl': effectiveUri.toString(),
+      'webViewControllerExists': _webViewController != null,
+      'webViewGetUrlIsNull': uri == null,
+      'passedSince': _passedSince?.toIso8601String(),
+      'interactiveSince': _interactiveSince?.toIso8601String(),
       'title': signals.title,
       'status': signals.status,
       'readyState': signals.readyState,
@@ -938,7 +950,13 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   }
 
   Future<String?> _tryFetchHtmlSnapshot(String url) async {
-    if (_webViewController == null) return null;
+    if (_webViewController == null) {
+      _lastFetchSnapshotOk = false;
+      _lastFetchSnapshotHttpStatus = -4;
+      _lastFetchSnapshotLen = 0;
+      _lastFetchSnapshotAt = DateTime.now();
+      throw StateError('webViewController is null');
+    }
     // Use synchronous XHR to avoid Promise-returning JS (WKWebView evaluateJavaScript may not await Promises).
     final js = """
       (function() {
@@ -1009,19 +1027,28 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   Future<void> _forceFetchAndResolve() async {
     if (_fetchSnapshotInProgress) return;
     final uri = await _webViewController?.getUrl();
-    if (uri == null) return;
+    final target = uri?.toString() ?? _currentUrl;
+    if (_webViewController == null) {
+      _lastFetchSnapshotOk = false;
+      _lastFetchSnapshotHttpStatus = -4;
+      _lastFetchSnapshotLen = 0;
+      _lastFetchSnapshotError = 'webViewController is null';
+      _lastFetchSnapshotAt = DateTime.now();
+      if (mounted) setState(() {});
+      return;
+    }
     _fetchSnapshotInProgress = true;
     _lastFetchSnapshotError = null;
     _lastFetchSnapshotAt = DateTime.now();
     if (mounted) setState(() {});
     try {
-      final fetched = await _tryFetchHtmlSnapshot(uri.toString());
+      final fetched = await _tryFetchHtmlSnapshot(target);
       if (fetched == null || fetched.isEmpty) {
         _lastFetchSnapshotError = 'fetched html is empty';
         return;
       }
       final lower = fetched.toLowerCase();
-      final okForDetail = uri.path.toLowerCase().contains('/modules/article/articleinfo.php') &&
+      final okForDetail = target.toLowerCase().contains('/modules/article/articleinfo.php') &&
           (lower.contains('id="content"') || lower.contains("id='content'"));
       final okForAny = okForDetail || (lower.contains('id="content"') || lower.contains("id='content'") || lower.contains('id="centers"'));
       if (!okForAny || _looksLikeCloudflareFallbackHtml(lower)) {
