@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart' as ckjar;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/main.dart';
@@ -242,9 +243,8 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     }
 
     final cookies = await _cookieManager.getCookies(url: uri);
-    if (cookies.isEmpty) {
-      if (kDebugMode) print('CloudflareResolver: No cookies found');
-      return;
+    if (cookies.isEmpty && kDebugMode) {
+      print('CloudflareResolver: No cookies found');
     }
 
     bool hasClearance = false;
@@ -274,7 +274,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       }
     }).where((c) => c != null).cast<ckjar.Cookie>().toList();
 
-    Request.saveWenku8Cookies(jarCookies);
+    if (jarCookies.isNotEmpty) {
+      Request.saveWenku8Cookies(jarCookies);
+    }
 
     if (kDebugMode) {
       print('CloudflareResolver: Synced ${jarCookies.length} cookies, hasClearance=$hasClearance, status=$status');
@@ -284,13 +286,18 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
 
     final reachedTargetPath = _isSamePathAsTarget(uri);
     final expectedDomReady = _hasExpectedDomForTarget(uri, signals);
+    final mainFrameOk = _mainFrameStatusCode == null || (_mainFrameStatusCode! >= 200 && _mainFrameStatusCode! < 400);
+
     // Some Cloudflare modes don't expose cf_clearance to app-side cookie APIs.
-    // If challenge page already turns into target page content, allow handoff.
-    final canResolve = (hasClearance && status == 'passed') ||
-        (reachedTargetPath && expectedDomReady && !signals.hasChallenge) ||
-        // Manual "continue" should be able to hand off even if DOM heuristics are too strict,
-        // as long as the page is no longer a challenge page.
-        (manualTrigger && status == 'passed' && reachedTargetPath && !signals.hasChallenge);
+    // If the WebView is already at the target path and no longer looks like a Cloudflare interstitial,
+    // allow handoff even if DOM heuristics are imperfect.
+    final canResolve =
+        (hasClearance && status == 'passed') ||
+        (reachedTargetPath && status == 'passed' && mainFrameOk && !signals.hasChallenge) ||
+        // Keep the old "expected DOM" shortcut as an extra safety net.
+        (reachedTargetPath && expectedDomReady && mainFrameOk && !signals.hasChallenge) ||
+        // Manual "continue" should be able to hand off even if cookie APIs are empty on some devices.
+        (manualTrigger && reachedTargetPath && status == 'passed' && mainFrameOk && !signals.hasChallenge);
 
     if (kDebugMode) {
       print(
@@ -340,6 +347,15 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     }
 
     if (manualTrigger && mounted) {
+      if (cookies.isEmpty) {
+        Get.snackbar(
+          "Cloudflare",
+          "目前仍無法取得 Cookie（可能尚未真正通過或 WebView Cookie API 受限），請稍後再按一次或改用其他網路/節點。",
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
       if (status == 'blocked') {
         Get.snackbar(
           "Cloudflare",
@@ -361,6 +377,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final webViewHeight = (MediaQuery.of(context).size.height * 0.42).clamp(240.0, 420.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -456,10 +473,17 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           ),
         ],
 
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: _copyDiagnostics,
+          icon: const Icon(Icons.copy, size: 18),
+          label: const Text("複製診斷資訊"),
+        ),
+
         if (widget.enableManualPass) ...[
           const SizedBox(height: 12),
           SizedBox(
-            height: 420,
+            height: webViewHeight,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: InAppWebView(
@@ -642,7 +666,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
 
   bool _hasExpectedDomForTarget(WebUri currentUri, _PageSignals signals) {
     final path = currentUri.path.toLowerCase();
-    if (path.contains('/index.php')) return signals.hasCenters;
+    if (path.contains('/index.php')) return signals.hasCenters || signals.hasContent;
     return signals.hasContent || signals.hasCenters;
   }
 
@@ -651,6 +675,50 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     final dst = Uri.parse(node.node);
     if (src == null) return node.node;
     return src.replace(scheme: dst.scheme, host: dst.host, port: dst.hasPort ? dst.port : null).toString();
+  }
+
+  Future<void> _copyDiagnostics() async {
+    final uri = await _webViewController?.getUrl();
+    final effectiveUri = uri ?? WebUri(_currentUrl);
+    final signals = await _detectPageSignals();
+    final cookies = await _cookieManager.getCookies(url: effectiveUri);
+    final cookieNames = cookies.map((c) => c.name).toList()..sort();
+
+    String? webViewUA;
+    try {
+      final ua = await _webViewController?.evaluateJavascript(source: 'navigator.userAgent');
+      if (ua != null) webViewUA = ua.toString();
+    } catch (_) {}
+
+    final payload = <String, Object?>{
+      'targetUrl': _currentUrl,
+      'effectiveUrl': effectiveUri.toString(),
+      'title': signals.title,
+      'status': signals.status,
+      'mainFrameStatusCode': _mainFrameStatusCode,
+      'reachedTargetPath': _isSamePathAsTarget(effectiveUri),
+      'hasChallenge': signals.hasChallenge,
+      'hasTurnstile': signals.hasTurnstile,
+      'hasChallengeScript': signals.hasChallengeScript,
+      'hasCloudflareTitle': signals.hasCloudflareTitle,
+      'cookieCount': cookies.length,
+      'cookieNames': cookieNames,
+      'webViewUA': webViewUA,
+      'savedUA': LocalStorageService.instance.getWebViewUA(),
+      'node': LocalStorageService.instance.getWenku8Node().node,
+    };
+
+    final text = const JsonEncoder.withIndent('  ').convert(payload);
+    await Clipboard.setData(ClipboardData(text: text));
+
+    if (mounted) {
+      Get.snackbar(
+        "Cloudflare",
+        "已複製診斷資訊到剪貼簿",
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+    }
   }
 }
 

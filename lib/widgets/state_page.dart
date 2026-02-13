@@ -58,30 +58,32 @@ class _CloudflareAutoResolver extends StatelessWidget {
       challengeUrl = urlMatch.group(1);
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          "cloudflare_challenge_exception_tip".tr,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        // 內嵌式自動解決 widget
-        CloudflareResolverWidget(
-          targetUrl: challengeUrl,
-          enableManualPass: true,
-          onResolved: () {
-            // If this resolver is shown inside a dialog, close it first so the retry is visible.
-            if (Get.isDialogOpen ?? false) {
-              Get.back();
-            }
-            // Trigger the retry/reload callback.
-            if (action != null) {
-              Future.microtask(() => action!());
-            }
-          },
-        ),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "cloudflare_challenge_exception_tip".tr,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          // 內嵌式自動解決 widget
+          CloudflareResolverWidget(
+            targetUrl: challengeUrl,
+            enableManualPass: true,
+            onResolved: () {
+              // If this resolver is shown inside a dialog, close it first so the retry is visible.
+              if (Get.isDialogOpen ?? false) {
+                Get.back();
+              }
+              // Trigger the retry/reload callback.
+              if (action != null) {
+                Future.microtask(() => action!());
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }
