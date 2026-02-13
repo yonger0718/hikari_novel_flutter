@@ -342,6 +342,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       final shouldTryFetch = manualTrigger || waited >= 1500;
       if (shouldTryFetch) {
         _fetchSnapshotInProgress = true;
+        _lastFetchSnapshotError = null;
+        _lastFetchSnapshotAt = DateTime.now();
+        if (mounted) setState(() {});
         try {
           final fetched = await _tryFetchHtmlSnapshot(uri.toString());
           if (fetched != null && fetched.isNotEmpty) {
@@ -373,6 +376,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           _lastFetchSnapshotError = e.toString();
         } finally {
           _fetchSnapshotInProgress = false;
+          if (mounted) setState(() {});
         }
       }
     }
@@ -935,40 +939,68 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
 
   Future<String?> _tryFetchHtmlSnapshot(String url) async {
     if (_webViewController == null) return null;
+    // Use synchronous XHR to avoid Promise-returning JS (WKWebView evaluateJavaScript may not await Promises).
     final js = """
-      (async function() {
+      (function() {
         try {
-          const resp = await fetch(${jsonEncode(url)}, { method: 'GET', credentials: 'include', cache: 'no-store' });
-          const text = await resp.text();
-          return JSON.stringify({ ok: resp.ok, status: resp.status, len: text.length, text: text });
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', ${jsonEncode(url)}, false);
+          xhr.withCredentials = true;
+          xhr.setRequestHeader('Cache-Control', 'no-cache');
+          xhr.send(null);
+          var text = xhr.responseText || '';
+          // Cap size to avoid excessive bridge payloads.
+          if (text.length > 2000000) text = text.slice(0, 2000000);
+          return JSON.stringify({ ok: (xhr.status >= 200 && xhr.status < 400), status: xhr.status, len: text.length, text: text });
         } catch (e) {
           return JSON.stringify({ ok: false, status: -1, len: 0, error: String(e) });
         }
       })();
     """;
+
     final result = await _webViewController!.evaluateJavascript(source: js);
-    if (result == null) return null;
-    final raw = result.toString();
-    String normalized = raw;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is String) normalized = decoded;
-    } catch (_) {
-      normalized = raw.replaceAll(RegExp(r'^"|"$'), '').replaceAll(r'\\"', '"');
+    if (result == null) {
+      _lastFetchSnapshotOk = false;
+      _lastFetchSnapshotHttpStatus = -2;
+      _lastFetchSnapshotLen = 0;
+      _lastFetchSnapshotAt = DateTime.now();
+      return null;
     }
-    final map = jsonDecode(normalized);
-    if (map is! Map) return null;
+
+    dynamic decodedAny = result;
+    // Some platforms may return a decoded object already; normalize to Map.
+    if (decodedAny is String) {
+      String normalized = decodedAny;
+      try {
+        final decoded = jsonDecode(decodedAny);
+        if (decoded is String) {
+          normalized = decoded;
+        }
+      } catch (_) {
+        normalized = decodedAny.replaceAll(RegExp(r'^"|"$'), '').replaceAll(r'\\"', '"');
+      }
+      decodedAny = jsonDecode(normalized);
+    }
+
+    final map = decodedAny;
+    if (map is! Map) {
+      _lastFetchSnapshotOk = false;
+      _lastFetchSnapshotHttpStatus = -3;
+      _lastFetchSnapshotLen = 0;
+      _lastFetchSnapshotAt = DateTime.now();
+      return null;
+    }
     if (map['ok'] != true) {
       final err = map['error']?.toString();
       _lastFetchSnapshotOk = false;
-      _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '');
-      _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '');
+      _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '') ?? -1;
+      _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '') ?? 0;
       _lastFetchSnapshotAt = DateTime.now();
       throw StateError('fetch failed status=${map['status']} err=${err ?? 'unknown'}');
     }
     _lastFetchSnapshotOk = true;
-    _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '');
-    _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '');
+    _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '') ?? 200;
+    _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '') ?? 0;
     _lastFetchSnapshotAt = DateTime.now();
     final text = map['text']?.toString() ?? '';
     return text;
@@ -980,6 +1012,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     if (uri == null) return;
     _fetchSnapshotInProgress = true;
     _lastFetchSnapshotError = null;
+    _lastFetchSnapshotAt = DateTime.now();
     if (mounted) setState(() {});
     try {
       final fetched = await _tryFetchHtmlSnapshot(uri.toString());
