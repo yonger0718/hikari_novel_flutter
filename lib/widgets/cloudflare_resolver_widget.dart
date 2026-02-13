@@ -50,6 +50,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   int? _mainFrameStatusCode;
   Timer? _pollTimer;
   DateTime? _interactiveSince;
+  DateTime? _passedSince;
+  bool _fetchSnapshotInProgress = false;
+  String? _lastFetchSnapshotError;
   late String _currentUrl;
 
   final InAppWebViewSettings _settings = InAppWebViewSettings(
@@ -248,8 +251,14 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
 
     if (status == 'interactive') {
       _interactiveSince ??= DateTime.now();
+      _passedSince = null;
     } else {
       _interactiveSince = null;
+    }
+    if (status == 'passed') {
+      _passedSince ??= DateTime.now();
+    } else {
+      _passedSince = null;
     }
     if (!_likelyEnvironmentBlocked && _interactiveSince != null) {
       final waited = DateTime.now().difference(_interactiveSince!);
@@ -315,6 +324,54 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     final reachedTargetPath = _isSamePathAsTarget(uri);
     final expectedDomReady = _hasExpectedDomForTarget(uri, signals);
     final mainFrameOk = _mainFrameStatusCode == null || (_mainFrameStatusCode! >= 200 && _mainFrameStatusCode! < 400);
+
+    // iOS/WKWebView can sometimes end up with a blank DOM even after passing challenge.
+    // In that case, try fetching the HTML using the same WebView session cookies.
+    if (!_resolved &&
+        !_fetchSnapshotInProgress &&
+        status == 'passed' &&
+        reachedTargetPath &&
+        mainFrameOk &&
+        !signals.hasChallenge &&
+        !expectedDomReady) {
+      final waited = _passedSince == null ? 0 : DateTime.now().difference(_passedSince!).inMilliseconds;
+      final shouldTryFetch = manualTrigger || waited >= 1500;
+      if (shouldTryFetch) {
+        _fetchSnapshotInProgress = true;
+        try {
+          final fetched = await _tryFetchHtmlSnapshot(uri.toString());
+          if (fetched != null && fetched.isNotEmpty) {
+            // If fetched HTML looks like the expected target page, cache and resolve.
+            final lower = fetched.toLowerCase();
+            final okForDetail = uri.path.toLowerCase().contains('/modules/article/articleinfo.php') &&
+                (lower.contains('id=\"content\"') || lower.contains(\"id='content'\"));
+            final okForAny = okForDetail || (lower.contains('id=\"content\"') || lower.contains(\"id='content'\") || lower.contains('id=\"centers\"'));
+            if (okForAny && !_looksLikeCloudflareFallbackHtml(lower)) {
+              Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, fetched);
+              if (kDebugMode) {
+                print('CloudflareResolver: fetched snapshot len=${fetched.length} for url=$uri');
+              }
+              // Mark resolved and handoff.
+              _resolved = true;
+              _handoffInProgress = true;
+              if (mounted) setState(() => _status = 'resolved');
+              await Future.delayed(const Duration(milliseconds: 200));
+              widget.onResolved?.call();
+              _handoffInProgress = false;
+              return;
+            } else {
+              _lastFetchSnapshotError = 'fetched html not expected (len=${fetched.length})';
+            }
+          } else {
+            _lastFetchSnapshotError = 'fetched html is empty';
+          }
+        } catch (e) {
+          _lastFetchSnapshotError = e.toString();
+        } finally {
+          _fetchSnapshotInProgress = false;
+        }
+      }
+    }
 
     // Some Cloudflare modes don't expose cf_clearance to app-side cookie APIs.
     // If the WebView is already at the target path and no longer looks like a Cloudflare interstitial,
@@ -389,7 +446,7 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       if (status == 'passed' && !expectedDomReady) {
         Get.snackbar(
           "Cloudflare",
-          "已通過驗證，但頁面尚未載入完成，請稍等 2-3 秒再按一次「繼續」。",
+          "已通過驗證，但頁面尚未載入完成，請稍等 2-3 秒再按一次「繼續」。若仍為空白，可按「重新載入頁面」。",
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 3),
         );
@@ -472,6 +529,24 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
             style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
+          if (_fetchSnapshotInProgress) ...[
+            const SizedBox(height: 6),
+            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(height: 4),
+            Text(
+              "正在嘗試抓取頁面內容...",
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          if (_lastFetchSnapshotError != null && kDebugMode) ...[
+            const SizedBox(height: 4),
+            Text(
+              "fetchSnapshot: $_lastFetchSnapshotError",
+              style: TextStyle(fontSize: 11, color: theme.colorScheme.error),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
 
         if (_resolved) ...[
@@ -824,6 +899,48 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  bool _looksLikeCloudflareFallbackHtml(String lowerHtml) {
+    return lowerHtml.contains('cdn-cgi/challenge-platform') ||
+        lowerHtml.contains('cf-browser-verification') ||
+        lowerHtml.contains('cf-chl') ||
+        lowerHtml.contains('challenges.cloudflare.com') ||
+        lowerHtml.contains('cf-error-details') ||
+        (lowerHtml.contains('just a moment') && lowerHtml.contains('cloudflare'));
+  }
+
+  Future<String?> _tryFetchHtmlSnapshot(String url) async {
+    if (_webViewController == null) return null;
+    final js = """
+      (async function() {
+        try {
+          const resp = await fetch(${jsonEncode(url)}, { method: 'GET', credentials: 'include', cache: 'no-store' });
+          const text = await resp.text();
+          return JSON.stringify({ ok: resp.ok, status: resp.status, len: text.length, text: text });
+        } catch (e) {
+          return JSON.stringify({ ok: false, status: -1, len: 0, error: String(e) });
+        }
+      })();
+    """;
+    final result = await _webViewController!.evaluateJavascript(source: js);
+    if (result == null) return null;
+    final raw = result.toString();
+    String normalized = raw;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is String) normalized = decoded;
+    } catch (_) {
+      normalized = raw.replaceAll(RegExp(r'^\"|\"$'), '').replaceAll(r'\\\"', '\"');
+    }
+    final map = jsonDecode(normalized);
+    if (map is! Map) return null;
+    if (map['ok'] != true) {
+      final err = map['error']?.toString();
+      throw StateError('fetch failed status=${map['status']} err=${err ?? 'unknown'}');
+    }
+    final text = map['text']?.toString() ?? '';
+    return text;
   }
 }
 
