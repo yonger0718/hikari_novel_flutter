@@ -130,8 +130,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       (function() {
         const title = document.title || "";
         const lowerTitle = title.toLowerCase();
-        const body = document.body ? document.body.innerHTML : "";
-        const lowerBody = body.toLowerCase();
+        const bodyHtml = document.body ? (document.body.innerHTML || "") : "";
+        const lowerBody = bodyHtml.toLowerCase();
+        const html = document.documentElement ? (document.documentElement.outerHTML || "") : "";
+        const lowerHtml = html.toLowerCase();
         const href = location.href || "";
         
         function tryAutoClick() {
@@ -140,12 +142,13 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           return false;
         }
 
-        const hasTurnstile = lowerBody.includes('cf-turnstile') ||
+        const hasTurnstile = lowerHtml.includes('cf-turnstile') ||
           !!document.querySelector('.cf-turnstile') ||
           href.includes('__cf_chl_rt_tk=');
-        const hasChallengeScript = lowerBody.includes('cdn-cgi/challenge-platform') ||
-          lowerBody.includes('cf-browser-verification') ||
-          lowerBody.includes('cf-chl');
+        const hasChallengeScript = lowerHtml.includes('cdn-cgi/challenge-platform') ||
+          lowerHtml.includes('cf-browser-verification') ||
+          lowerHtml.includes('cf-chl') ||
+          lowerHtml.includes('challenges.cloudflare.com');
         const hasCloudflareTitle = lowerTitle.includes('just a moment') ||
           lowerTitle.includes('attention required') ||
           lowerTitle.includes('access denied') ||
@@ -156,12 +159,16 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         const hasBookcaseControls =
           !!document.querySelector('input[name="checkall"]') ||
           !!document.querySelector('select[name="newclassid"]') ||
-          lowerBody.includes('newclassid');
+          lowerHtml.includes('newclassid');
         const readyState = (document.readyState || "").toLowerCase();
+        const tableCount = document.getElementsByTagName('table').length;
+        const textLen = (document.body && document.body.textContent) ? document.body.textContent.length : 0;
+        const htmlLen = html.length;
+        const hasMetaRefresh = !!document.querySelector('meta[http-equiv="refresh" i]');
         const blockedText = lowerTitle.includes('sorry, you have been blocked') ||
-          lowerBody.includes('you have been blocked') ||
-          lowerBody.includes('error code 1020') ||
-          lowerBody.includes('access denied');
+          lowerHtml.includes('you have been blocked') ||
+          lowerHtml.includes('error code 1020') ||
+          lowerHtml.includes('access denied');
 
         if (hasTurnstile || document.querySelector('#challenge-stage')) {
           tryAutoClick();
@@ -182,6 +189,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
           hasCenters,
           hasBookcaseControls,
           readyState,
+          tableCount,
+          textLen,
+          htmlLen,
+          hasMetaRefresh,
           hasTurnstile,
           hasChallengeScript,
           hasCloudflareTitle,
@@ -211,6 +222,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
         hasCenters: map['hasCenters'] == true,
         hasBookcaseControls: map['hasBookcaseControls'] == true,
         readyState: map['readyState']?.toString() ?? '',
+        tableCount: int.tryParse(map['tableCount']?.toString() ?? '') ?? 0,
+        textLen: int.tryParse(map['textLen']?.toString() ?? '') ?? 0,
+        htmlLen: int.tryParse(map['htmlLen']?.toString() ?? '') ?? 0,
+        hasMetaRefresh: map['hasMetaRefresh'] == true,
         hasTurnstile: map['hasTurnstile'] == true,
         hasChallengeScript: map['hasChallengeScript'] == true,
         hasCloudflareTitle: map['hasCloudflareTitle'] == true,
@@ -778,6 +793,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       'hasCenters': signals.hasCenters,
       'hasBookcaseControls': signals.hasBookcaseControls,
       'expectedDomReady': _hasExpectedDomForTarget(effectiveUri, signals),
+      'tableCount': signals.tableCount,
+      'textLen': signals.textLen,
+      'htmlLen': signals.htmlLen,
+      'hasMetaRefresh': signals.hasMetaRefresh,
       'mainFrameStatusCode': _mainFrameStatusCode,
       'reachedTargetPath': _isSamePathAsTarget(effectiveUri),
       'hasChallenge': signals.hasChallenge,
@@ -819,6 +838,10 @@ class _PageSignals {
   final bool hasCloudflareTitle;
   final bool hasBookcaseControls;
   final String readyState;
+  final int tableCount;
+  final int textLen;
+  final int htmlLen;
+  final bool hasMetaRefresh;
 
   const _PageSignals({
     required this.status,
@@ -831,6 +854,10 @@ class _PageSignals {
     this.hasCloudflareTitle = false,
     this.hasBookcaseControls = false,
     this.readyState = '',
+    this.tableCount = 0,
+    this.textLen = 0,
+    this.htmlLen = 0,
+    this.hasMetaRefresh = false,
   });
 
   bool get hasChallenge => hasTurnstile || hasChallengeScript || hasCloudflareTitle;
