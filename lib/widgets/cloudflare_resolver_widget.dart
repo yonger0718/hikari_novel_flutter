@@ -723,6 +723,12 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       if (ua != null) webViewUA = ua.toString();
     } catch (_) {}
 
+    List<String> dioCookieJarNames = <String>[];
+    try {
+      final jarCookies = await Request.cookieJar.loadForRequest(Uri.parse(effectiveUri.toString()));
+      dioCookieJarNames = jarCookies.map((c) => c.name).toSet().toList()..sort();
+    } catch (_) {}
+
     final payload = <String, Object?>{
       'targetUrl': _currentUrl,
       'effectiveUrl': effectiveUri.toString(),
@@ -737,7 +743,9 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       'cookieCount': cookies.length,
       'cookieNames': cookieNames,
       'cookieDetails': cookieDetails,
+      'dioCookieJarCookieNamesForEffectiveUrl': dioCookieJarNames,
       'webViewUA': webViewUA,
+      'dioUA': Request.dio.options.headers['user-agent']?.toString(),
       'savedUA': LocalStorageService.instance.getWebViewUA(),
       'node': LocalStorageService.instance.getWenku8Node().node,
     };
