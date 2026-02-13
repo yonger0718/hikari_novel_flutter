@@ -53,6 +53,10 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
   DateTime? _passedSince;
   bool _fetchSnapshotInProgress = false;
   String? _lastFetchSnapshotError;
+  int? _lastFetchSnapshotHttpStatus;
+  int? _lastFetchSnapshotLen;
+  bool? _lastFetchSnapshotOk;
+  DateTime? _lastFetchSnapshotAt;
   late String _currentUrl;
 
   final InAppWebViewSettings _settings = InAppWebViewSettings(
@@ -539,6 +543,14 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
               textAlign: TextAlign.center,
             ),
           ],
+          if (_lastFetchSnapshotAt != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              "fetch: ok=${_lastFetchSnapshotOk ?? '-'} status=${_lastFetchSnapshotHttpStatus ?? '-'} len=${_lastFetchSnapshotLen ?? '-'}",
+              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
           if (_lastFetchSnapshotError != null && kDebugMode) ...[
             const SizedBox(height: 4),
             Text(
@@ -653,6 +665,11 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
             onPressed: () => _webViewController?.reload(),
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text("重新載入頁面"),
+          ),
+          TextButton.icon(
+            onPressed: _forceFetchAndResolve,
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text("強制抓取內容"),
           ),
           FilledButton.icon(
             onPressed: _onManualContinuePressed,
@@ -872,6 +889,12 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       'textLen': signals.textLen,
       'htmlLen': signals.htmlLen,
       'hasMetaRefresh': signals.hasMetaRefresh,
+      'fetchSnapshotInProgress': _fetchSnapshotInProgress,
+      'lastFetchSnapshotError': _lastFetchSnapshotError,
+      'lastFetchSnapshotOk': _lastFetchSnapshotOk,
+      'lastFetchSnapshotHttpStatus': _lastFetchSnapshotHttpStatus,
+      'lastFetchSnapshotLen': _lastFetchSnapshotLen,
+      'lastFetchSnapshotAt': _lastFetchSnapshotAt?.toIso8601String(),
       'mainFrameStatusCode': _mainFrameStatusCode,
       'reachedTargetPath': _isSamePathAsTarget(effectiveUri),
       'hasChallenge': signals.hasChallenge,
@@ -937,10 +960,54 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
     if (map is! Map) return null;
     if (map['ok'] != true) {
       final err = map['error']?.toString();
+      _lastFetchSnapshotOk = false;
+      _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '');
+      _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '');
+      _lastFetchSnapshotAt = DateTime.now();
       throw StateError('fetch failed status=${map['status']} err=${err ?? 'unknown'}');
     }
+    _lastFetchSnapshotOk = true;
+    _lastFetchSnapshotHttpStatus = int.tryParse(map['status']?.toString() ?? '');
+    _lastFetchSnapshotLen = int.tryParse(map['len']?.toString() ?? '');
+    _lastFetchSnapshotAt = DateTime.now();
     final text = map['text']?.toString() ?? '';
     return text;
+  }
+
+  Future<void> _forceFetchAndResolve() async {
+    if (_fetchSnapshotInProgress) return;
+    final uri = await _webViewController?.getUrl();
+    if (uri == null) return;
+    _fetchSnapshotInProgress = true;
+    _lastFetchSnapshotError = null;
+    if (mounted) setState(() {});
+    try {
+      final fetched = await _tryFetchHtmlSnapshot(uri.toString());
+      if (fetched == null || fetched.isEmpty) {
+        _lastFetchSnapshotError = 'fetched html is empty';
+        return;
+      }
+      final lower = fetched.toLowerCase();
+      final okForDetail = uri.path.toLowerCase().contains('/modules/article/articleinfo.php') &&
+          (lower.contains('id="content"') || lower.contains("id='content'"));
+      final okForAny = okForDetail || (lower.contains('id="content"') || lower.contains("id='content'") || lower.contains('id="centers"'));
+      if (!okForAny || _looksLikeCloudflareFallbackHtml(lower)) {
+        _lastFetchSnapshotError = 'fetched html not expected (len=${fetched.length})';
+        return;
+      }
+      Request.setLastResolvedHtmlSnapshotForUrl(_currentUrl, fetched);
+      _resolved = true;
+      _handoffInProgress = true;
+      if (mounted) setState(() => _status = 'resolved');
+      await Future.delayed(const Duration(milliseconds: 200));
+      widget.onResolved?.call();
+    } catch (e) {
+      _lastFetchSnapshotError = e.toString();
+    } finally {
+      _handoffInProgress = false;
+      _fetchSnapshotInProgress = false;
+      if (mounted) setState(() {});
+    }
   }
 }
 
