@@ -128,6 +128,10 @@ class Request {
     final ccCookies = <ckjar.Cookie>[];
 
     for (final cookie in cookies) {
+      // Normalize leading dot domains (".wenku8.net") so cookie_jar matches subdomains correctly.
+      final normalizedDomain = (cookie.domain ?? '').replaceFirst(RegExp(r'^\\.'), '');
+      cookie.domain = normalizedDomain.isEmpty ? null : normalizedDomain;
+
       final domain = (cookie.domain ?? '').toLowerCase();
       if (domain.contains('wenku8.net')) {
         netCookies.add(cookie);
@@ -226,9 +230,13 @@ class Request {
   static List<ckjar.Cookie> _webViewCookiesToJar(List<dynamic> cookies) {
     return cookies.map((c) {
       try {
+        final rawDomain = (c.domain?.toString() ?? '').trim();
+        final normalizedDomain = rawDomain.replaceFirst(RegExp(r'^\\.'), '');
+        final rawPath = (c.path?.toString() ?? '').trim();
+
         final cookie = ckjar.Cookie(c.name, c.value.toString())
-          ..domain = c.domain
-          ..path = c.path
+          ..domain = normalizedDomain.isEmpty ? null : normalizedDomain
+          ..path = rawPath.isEmpty ? "/" : rawPath
           ..httpOnly = c.isHttpOnly ?? false
           ..secure = c.isSecure ?? false;
         if (c.expiresDate != null) {
@@ -361,6 +369,14 @@ class Request {
           url += "&charset=gbk";
         case CharsetsType.big5Hkscs:
           url += "&charset=big5";
+      }
+
+      if (kDebugMode) {
+        try {
+          final jarCookies = await _dioCookieJar.loadForRequest(Uri.parse(url));
+          final cookieNames = jarCookies.map((c) => c.name).toSet().toList()..sort();
+          Log.d("Dio cookieJar -> ${Uri.parse(url).host}${Uri.parse(url).path}: ${cookieNames.join(', ')}");
+        } catch (_) {}
       }
 
       // If the user just solved Cloudflare in an interactive WebView, use the captured HTML once.

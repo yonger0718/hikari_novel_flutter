@@ -254,9 +254,13 @@ class _CloudflareResolverWidgetState extends State<CloudflareResolverWidget> {
       if (c.name == 'cf_clearance') hasClearance = true;
 
       try {
+        final rawDomain = (c.domain?.toString() ?? '').trim();
+        final normalizedDomain = rawDomain.replaceFirst(RegExp(r'^\\.'), '');
+        final rawPath = (c.path?.toString() ?? '').trim();
+
         final cookie = ckjar.Cookie(c.name, c.value.toString())
-          ..domain = c.domain
-          ..path = c.path
+          ..domain = normalizedDomain.isEmpty ? null : normalizedDomain
+          ..path = rawPath.isEmpty ? "/" : rawPath
           ..httpOnly = c.isHttpOnly ?? false
           ..secure = c.isSecure ?? false;
 
