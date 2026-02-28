@@ -3,10 +3,10 @@ description: "An app for reading wenku8, refactor with flutter"
 
 publish_to: 'none'
 
-version: 0.2.0+3
+version: 0.3.0-beta.1+4
 
 environment:
-  sdk: ">=3.9.2 <4.0.0"
+  sdk: ">=3.10.7"
 
 dependencies:
   flutter:
@@ -22,10 +22,6 @@ dependencies:
 
   # 浏览器
   flutter_inappwebview: ^6.1.5
-
-  # 图标
-  material_symbols_icons: ^4.2815.1
-  amicons: ^1.0.1
 
   # 设备信息
   device_info_plus: ^12.3.0
@@ -105,11 +101,17 @@ dependencies:
   # 调用外部浏览器
   url_launcher: ^6.3.2
 
+  # tts
+  flutter_tts: ^4.2.0
+
   # splash
   flutter_native_splash: ^2.4.7
 
   # 版本号解析
   pub_semver: ^2.2.0
+
+  # 自定义divider
+  wx_divider: ^1.0.0
 
 dev_dependencies:
   flutter_test:

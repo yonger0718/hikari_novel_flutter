@@ -2,6 +2,7 @@ import 'package:blur/blur.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expandable_text/expandable_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/common/constants.dart';
@@ -32,6 +33,8 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
   final RxDouble _opacity = 0.0.obs;
   final ScrollController _scrollController = ScrollController();
 
+  bool _isFabVisible = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,17 +55,17 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
       children: [
         Obx(() => Offstage(offstage: controller.pageState.value != PageState.success, child: _buildPage(context))),
         Obx(() => Offstage(offstage: controller.pageState.value != PageState.loading, child: _buildLoadingPage())),
-        Obx(
-          () => Offstage(
-            offstage: controller.pageState.value != PageState.error,
-            child: ErrorMessage(msg: controller.errorMsg, onRetry: () => controller.getNovelDetail()),
-          ),
-        ),
+        Obx(() => Offstage(offstage: controller.pageState.value != PageState.error, child: _buildErrorPage())),
       ],
     );
   }
 
   Widget _buildLoadingPage() => Scaffold(appBar: AppBar(), body: const LoadingPage());
+
+  Widget _buildErrorPage() => Scaffold(
+    appBar: AppBar(),
+    body: ErrorMessage(msg: controller.errorMsg, action: controller.getNovelDetail),
+  );
 
   Widget _buildPage(BuildContext context) {
     return Obx(
@@ -74,7 +77,16 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
                 appBar: _buildAppBar(context),
                 body: NotificationListener<Notification>(
                   onNotification: (Notification notification) {
-                    if (notification is ScrollNotification) {
+                    if (notification is UserScrollNotification) {
+                      if (!_isFabVisible) return false;
+
+                      final direction = notification.direction;
+                      if (direction == ScrollDirection.forward) {
+                        controller.showFab();
+                      } else if (direction == ScrollDirection.reverse) {
+                        controller.hideFab();
+                      }
+                    } else if (notification is ScrollNotification) {
                       final double offset = notification.metrics.pixels;
                       _opacity.value = offset > 0 ? 1 : 0;
                     }
@@ -451,15 +463,20 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
           stream: DBService.instance.getLastestReadHistoryByAid(controller.aid),
           builder: (_, snapshot) {
             if (snapshot.data == null && !controller.isValidReadHistory(snapshot.data)) {
+              _isFabVisible = false;
               return Container();
             }
+            _isFabVisible = true;
             final history = snapshot.data;
-            return FloatingActionButton.extended(
-              onPressed: () {
-                if (history == null) return;
-                Get.toNamed(RoutePath.reader, parameters: {"cid": history.cid, "location": "${history.location}"});
-              },
-              label: Row(children: [const Icon(Icons.play_arrow), const SizedBox(width: 10), Text("continue_reading".tr)]),
+            return SlideTransition(
+              position: controller.animation,
+              child: FloatingActionButton.extended(
+                onPressed: () {
+                  if (history == null) return;
+                  Get.toNamed(RoutePath.reader, parameters: {"cid": history.cid, "location": "${history.location}"});
+                },
+                label: Row(children: [const Icon(Icons.play_arrow), const SizedBox(width: 10), Text("continue_reading".tr)]),
+              ),
             );
           },
         ),
@@ -480,7 +497,7 @@ class _NovelDetailPageState extends State<NovelDetailPage> {
             children: [
               Expanded(
                 child: TextButton.icon(
-                  onPressed: () async {
+                  onPressed: () async { //TODO 下载数量限制
                     await controller.startCache();
                     controller.exitSelectionMode();
                     AppSubRouter.toCacheQueue();

@@ -5,7 +5,7 @@ import 'package:hikari_novel_flutter/pages/main/controller.dart';
 import 'package:hikari_novel_flutter/pages/novel_detail/controller.dart';
 
 import '../../common/log.dart';
-import '../../common/widgets.dart';
+import '../../common/common_widgets.dart';
 import '../../router/app_pages.dart';
 import '../../router/app_sub_router.dart';
 import '../../router/route_path.dart';
@@ -31,7 +31,7 @@ class MainPage extends StatelessWidget {
               if (controller.showBookshelfBottomActionBar.value) {
                 BookshelfController bookshelfController = Get.find();
                 BookshelfContentController currentTabController = Get.find(tag: "BookshelfContentController ${bookshelfController.tabController.index}");
-                return Widgets.bookshelfBottomActionBar(currentTabController, bookshelfController, edgeToEdge: true);
+                return CommonWidgets.bookshelfBottomActionBar(currentTabController, bookshelfController, edgeToEdge: true);
               } else {
                 return NavigationBar(
                   selectedIndex: controller.selectedIndex.value,

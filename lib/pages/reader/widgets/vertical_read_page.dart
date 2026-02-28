@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -37,23 +38,18 @@ class _VerticalReadPageState extends State<VerticalReadPage> with WidgetsBinding
   TextStyle textStyle = TextStyle();
   EdgeInsets padding = EdgeInsets.zero;
 
-  double position = 0;
-
   late String _lastLayoutSig;
 
   @override
   void initState() {
     super.initState();
-    position = widget.initPosition.toDouble();
     _lastLayoutSig = _layoutSignature();
     WidgetsBinding.instance.addObserver(this);
+    resetPage();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.controller.jumpTo(widget.initPosition.toDouble());
-      widget.onScroll(widget.controller.offset, widget.controller.position.maxScrollExtent); //页面加载完成时，提醒保存进度
     });
-
-    resetPage();
   }
 
   @override
@@ -68,7 +64,6 @@ class _VerticalReadPageState extends State<VerticalReadPage> with WidgetsBinding
     images = List<String>.from(widget.images); //转换为纯净的List<String>
     padding = widget.padding;
     if (text.isEmpty && images.isEmpty) {
-      position = 0;
       setState(() {});
       return;
     }
@@ -104,33 +99,21 @@ class _VerticalReadPageState extends State<VerticalReadPage> with WidgetsBinding
           padding: padding,
           child: Column(
             children: [
-              Text(text, textAlign: TextAlign.justify, style: textStyle),
-              images.isEmpty
-                  ? Container()
-                  : ListView.separated(
-                      //允许展开
-                      shrinkWrap: true,
-                      //禁止自身滚动
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: images.length,
-                      padding: EdgeInsets.zero,
-                      separatorBuilder: (_, i) => SizedBox(height: 20),
-                      itemBuilder: (_, i) {
-                        return GestureDetector(
-                          onDoubleTap: () => Get.toNamed(RoutePath.photo, arguments: {"gallery_mode": true, "list": images, "index": i}),
-                          onLongPress: () => Get.toNamed(RoutePath.photo, arguments: {"gallery_mode": true, "list": images, "index": i}),
-                          child: CachedNetworkImage(
-                            width: double.infinity,
-                            imageUrl: images[i],
-                            httpHeaders: Request.userAgent,
-                            fit: BoxFit.fitWidth,
-                            progressIndicatorBuilder: (context, url, downloadProgress) =>
-                                Center(child: CircularProgressIndicator(value: downloadProgress.progress)),
-                            errorWidget: (context, url, error) => Column(children: [Icon(Icons.error_outline), Text(error.toString())]),
-                          ),
-                        );
-                      },
-                    ),
+              HtmlWidget('<div style="text-align: justify;">${text.replaceAll('\n', '<br>')}</div>', textStyle: textStyle, enableCaching: true),
+              ...images.asMap().entries.map(
+                (entry) => GestureDetector(
+                  onDoubleTap: () => Get.toNamed(RoutePath.photo, arguments: {"gallery_mode": true, "list": images, "index": entry.key}),
+                  onLongPress: () => Get.toNamed(RoutePath.photo, arguments: {"gallery_mode": true, "list": images, "index": entry.key}),
+                  child: CachedNetworkImage(
+                    width: double.infinity,
+                    imageUrl: images[entry.key],
+                    httpHeaders: Request.userAgent,
+                    fit: BoxFit.fitWidth,
+                    progressIndicatorBuilder: (context, url, downloadProgress) => Center(child: CircularProgressIndicator(value: downloadProgress.progress)),
+                    errorWidget: (context, url, error) => Column(children: [Icon(Icons.error_outline), Text(error.toString())]),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

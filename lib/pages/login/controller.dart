@@ -7,12 +7,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:hikari_novel_flutter/main.dart';
 import 'package:hikari_novel_flutter/models/common/wenku8_node.dart';
+import 'package:hikari_novel_flutter/models/page_state.dart';
 import 'package:hikari_novel_flutter/network/request.dart';
 import 'package:hikari_novel_flutter/router/route_path.dart';
-import 'package:hikari_novel_flutter/widgets/state_page.dart';
 
 import '../../common/database/database.dart';
-import '../../common/log.dart';
 import '../../models/resource.dart';
 import '../../network/api.dart';
 import '../../network/parser.dart';
@@ -30,6 +29,10 @@ class LoginController extends GetxController {
     userAgent: Request.userAgent[HttpHeaders.userAgentHeader],
     javaScriptEnabled: true,
   );
+  RxString currentUrl = "".obs;
+
+  Rx<PageState> pageState = PageState.success.obs;
+  String errorMsg = "";
 
   String get url => "${Api.wenku8Node.node}/login.php";
 
@@ -50,11 +53,9 @@ class LoginController extends GetxController {
         (keyword) => getCookie.any((cookieItem) => cookieItem.name.contains(keyword)),
       ); //getCookie.any((cookieItem) => cookieItem.name == "jieqiUserInfo");
       if (hasCookie) {
-        // String cookie = "jieqiUserInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiUserInfo").value};";
-        // cookie += "jieqiVisitInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiVisitInfo").value}";
-        Log.d(getCookie.map((c) => "${c.name}=${Uri.encodeComponent(c.value)}").join(";").toString());
-        //这里将cookie的value编译成url格式是为了避免报错
-        LocalStorageService.instance.setCookie(getCookie.map((c) => "${c.name}=${Uri.encodeComponent(c.value)}").join(";"));
+        String cookie = "jieqiUserInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiUserInfo").value};";
+        cookie += "jieqiVisitInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiVisitInfo").value}";
+        LocalStorageService.instance.setCookie(cookie);
         Request.initCookie();
 
         try {
@@ -62,7 +63,13 @@ class LoginController extends GetxController {
           await _refreshBookshelf();
         } catch (e) {
           LocalStorageService.instance.setCookie(null); //清空cookie
-          Get.offAllNamed(RoutePath.welcome);
+          Request.deleteCookie();
+
+          inAppWebViewController?.dispose(); //销毁webview，停止加载网页
+
+          errorMsg = e.toString();
+          pageState.value = PageState.error;
+
           return;
         }
 
@@ -78,7 +85,6 @@ class LoginController extends GetxController {
         LocalStorageService.instance.setUserInfo(Parser.getUserInfo(data.data));
       case Error():
         {
-          await showErrorDialog(data.error.toString(), [TextButton(onPressed: Get.back, child: Text("confirm".tr))]);
           throw data.error;
         }
     }
@@ -108,7 +114,6 @@ class LoginController extends GetxController {
         }
       case Error():
         {
-          await showErrorDialog(result.error.toString(), [TextButton(onPressed: Get.back, child: Text("confirm".tr))]);
           throw result.error;
         }
     }

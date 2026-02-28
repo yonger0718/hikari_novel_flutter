@@ -4,7 +4,7 @@ class Log {
   static final Logger _logger = Logger(
     printer: PrefixPrinter(
       PrettyPrinter(
-        methodCount: null,
+        methodCount: 3,
         dateTimeFormat: DateTimeFormat.dateAndTime
       )
     ),

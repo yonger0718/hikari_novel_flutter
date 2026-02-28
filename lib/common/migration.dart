@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:hikari_novel_flutter/network/request.dart';
+import 'package:hikari_novel_flutter/service/local_storage_service.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -42,5 +44,10 @@ class Migration {
     await appDatabase.customStatement("DROP TABLE read_history_entity;");
     //重命名新表
     await appDatabase.customStatement("ALTER TABLE read_history_entity_new RENAME TO read_history_entity;");
+  }
+
+  static void fromTwoToThree() {
+    LocalStorageService.instance.setCookie(null);
+    Request.deleteCookie();
   }
 }

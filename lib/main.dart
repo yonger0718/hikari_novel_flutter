@@ -15,7 +15,9 @@ import 'package:hikari_novel_flutter/network/request.dart';
 import 'package:hikari_novel_flutter/router/app_pages.dart';
 import 'package:hikari_novel_flutter/router/route_path.dart';
 import 'package:hikari_novel_flutter/service/db_service.dart';
+import 'package:hikari_novel_flutter/service/dev_mode_service.dart';
 import 'package:hikari_novel_flutter/service/local_storage_service.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 import 'package:jiffy/jiffy.dart';
 
 final localhostServer = InAppLocalhostServer(documentRoot: 'assets');
@@ -26,17 +28,14 @@ void main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   await Get.put(LocalStorageService()).init();
+  Get.put(DevModeService()).init();
   Get.put(DBService()).init();
+  await Get.put(TtsService()).init();
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     final availableVersion = await WebViewEnvironment.getAvailableVersion();
-    assert(
-      availableVersion != null,
-      'Failed to find an installed WebView2 runtime or non-stable Microsoft Edge installation.',
-    );
-    webViewEnvironment = await WebViewEnvironment.create(
-      settings: WebViewEnvironmentSettings(userDataFolder: 'custom_path'),
-    );
+    assert(availableVersion != null, 'Failed to find an installed WebView2 runtime or non-stable Microsoft Edge installation.');
+    webViewEnvironment = await WebViewEnvironment.create(settings: WebViewEnvironmentSettings(userDataFolder: 'custom_path'));
   } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
@@ -63,27 +62,15 @@ class MyApp extends StatelessWidget {
     bool isDynamicColor = LocalStorageService.instance.getIsDynamicColor();
 
     if (Platform.isAndroid) {
-      return AndroidApp(
-        brandColor: brandColor,
-        isDynamicColor: isDynamicColor,
-        currentThemeValue: currentThemeValue,
-      );
+      return AndroidApp(brandColor: brandColor, isDynamicColor: isDynamicColor, currentThemeValue: currentThemeValue);
     } else {
-      return OtherApp(
-        brandColor: brandColor,
-        currentThemeValue: currentThemeValue,
-      );
+      return OtherApp(brandColor: brandColor, currentThemeValue: currentThemeValue);
     }
   }
 }
 
 class AndroidApp extends StatelessWidget {
-  const AndroidApp({
-    super.key,
-    required this.brandColor,
-    required this.isDynamicColor,
-    required this.currentThemeValue,
-  });
+  const AndroidApp({super.key, required this.brandColor, required this.isDynamicColor, required this.currentThemeValue});
 
   final Color brandColor;
   final bool isDynamicColor;
@@ -101,31 +88,17 @@ class AndroidApp extends StatelessWidget {
           darkColorScheme = darkDynamic.harmonized();
         } else {
           // dynamic取色失败，采用品牌色
-          lightColorScheme = ColorScheme.fromSeed(
-            seedColor: brandColor,
-            brightness: Brightness.light,
-          );
-          darkColorScheme = ColorScheme.fromSeed(
-            seedColor: brandColor,
-            brightness: Brightness.dark,
-          );
+          lightColorScheme = ColorScheme.fromSeed(seedColor: brandColor, brightness: Brightness.light);
+          darkColorScheme = ColorScheme.fromSeed(seedColor: brandColor, brightness: Brightness.dark);
         }
-        return BuildMainApp(
-          lightColorScheme: lightColorScheme,
-          darkColorScheme: darkColorScheme,
-          currentThemeValue: currentThemeValue,
-        );
+        return BuildMainApp(lightColorScheme: lightColorScheme, darkColorScheme: darkColorScheme, currentThemeValue: currentThemeValue);
       }),
     );
   }
 }
 
 class OtherApp extends StatelessWidget {
-  const OtherApp({
-    super.key,
-    required this.brandColor,
-    required this.currentThemeValue,
-  });
+  const OtherApp({super.key, required this.brandColor, required this.currentThemeValue});
 
   final Color brandColor;
   final ThemeMode currentThemeValue;
@@ -133,26 +106,15 @@ class OtherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BuildMainApp(
-      lightColorScheme: ColorScheme.fromSeed(
-        seedColor: brandColor,
-        brightness: Brightness.light,
-      ),
-      darkColorScheme: ColorScheme.fromSeed(
-        seedColor: brandColor,
-        brightness: Brightness.dark,
-      ),
+      lightColorScheme: ColorScheme.fromSeed(seedColor: brandColor, brightness: Brightness.light),
+      darkColorScheme: ColorScheme.fromSeed(seedColor: brandColor, brightness: Brightness.dark),
       currentThemeValue: currentThemeValue,
     );
   }
 }
 
 class BuildMainApp extends StatelessWidget {
-  const BuildMainApp({
-    super.key,
-    required this.lightColorScheme,
-    required this.darkColorScheme,
-    required this.currentThemeValue,
-  });
+  const BuildMainApp({super.key, required this.lightColorScheme, required this.darkColorScheme, required this.currentThemeValue});
 
   final ColorScheme lightColorScheme;
   final ColorScheme darkColorScheme;
@@ -161,44 +123,33 @@ class BuildMainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final SnackBarThemeData snackBarTheme = SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
       actionTextColor: lightColorScheme.primary,
-      backgroundColor: lightColorScheme.secondaryContainer,
-      closeIconColor: lightColorScheme.secondary,
-      contentTextStyle: TextStyle(color: lightColorScheme.secondary),
-      elevation: 20,
+      backgroundColor: lightColorScheme.onSurface,
+      closeIconColor: lightColorScheme.surface,
+      contentTextStyle: TextStyle(color: lightColorScheme.surface),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      showCloseIcon: true,
     );
 
     return GetMaterialApp(
       title: kAppName,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: currentThemeValue == ThemeMode.dark
-            ? darkColorScheme
-            : lightColorScheme,
+        colorScheme: currentThemeValue == ThemeMode.dark ? darkColorScheme : lightColorScheme,
         snackBarTheme: snackBarTheme,
         pageTransitionsTheme: const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: ZoomPageTransitionsBuilder(
-              allowEnterRouteSnapshotting: false,
-            ),
-          },
+          builders: <TargetPlatform, PageTransitionsBuilder>{TargetPlatform.android: ZoomPageTransitionsBuilder(allowEnterRouteSnapshotting: false)},
         ),
         //页面切换动画
         fontFamily: Platform.isWindows ? "Microsoft YaHei" : null,
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: currentThemeValue == ThemeMode.light
-            ? lightColorScheme
-            : darkColorScheme
-      ),
+      darkTheme: ThemeData(useMaterial3: true, colorScheme: currentThemeValue == ThemeMode.light ? lightColorScheme : darkColorScheme),
       translations: AppTranslations(),
       locale: Util.getCurrentLocale(),
       fallbackLocale: Locale("zh", "CN"),
       getPages: AppRoutes.mainRoutePages,
-      initialRoute: LocalStorageService.instance.getCookie() != null
-          ? RoutePath.main
-          : RoutePath.welcome, //初始页面
+      initialRoute: LocalStorageService.instance.getCookie() != null ? RoutePath.main : RoutePath.welcome, //初始页面
     );
   }
 }

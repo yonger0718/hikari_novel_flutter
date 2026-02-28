@@ -101,8 +101,7 @@ class SearchPage extends StatelessWidget {
                                       return ActionChip(
                                         label: Text(controller.searchHistory[index], style: TextStyle(fontSize: 13)),
                                         onPressed: () {
-                                          controller.keywordController.text = controller.searchHistory[index];
-                                          controller.getPage(false);
+                                          controller.searchFromHistory(controller.searchHistory[index]);
                                         },
                                       );
                                     },
@@ -112,7 +111,7 @@ class SearchPage extends StatelessWidget {
                               IconButton(
                                 icon: Icon(Icons.delete_outline),
                                 tooltip: "clear_all_history".tr,
-                                onPressed: () => DBService.instance.deleteAllBrowsingHistory(),
+                                onPressed: () => DBService.instance.deleteAllSearchHistory(),
                               ),
                             ],
                           ),

@@ -23,7 +23,7 @@ import '../../network/api.dart';
 import '../../service/db_service.dart';
 import '../../service/local_storage_service.dart';
 
-class NovelDetailController extends GetxController {
+class NovelDetailController extends GetxController with GetSingleTickerProviderStateMixin {
   final String aid;
 
   NovelDetailController({required this.aid});
@@ -40,16 +40,47 @@ class NovelDetailController extends GetxController {
 
   RxBool isSelectionMode = false.obs;
 
+  bool _isFabVisible = true;
+  late final AnimationController _fabAnimationCtr;
+  late final Animation<Offset> animation;
+
   final bookshelfController = Get.find<BookshelfController>();
   final cacheQueueController = Get.findOrPut(() => CacheQueueController());
 
   late final Directory _supportDir;
 
   @override
+  void onInit() {
+    super.onInit();
+    _fabAnimationCtr = AnimationController(vsync: this, duration: const Duration(milliseconds: 100))..forward();
+    animation = _fabAnimationCtr.drive(Tween<Offset>(begin: const Offset(0.0, 2.0), end: Offset.zero).chain(CurveTween(curve: Curves.easeInOut)));
+  }
+
+  @override
   void onReady() async {
     super.onReady();
     _supportDir = await getApplicationSupportDirectory();
     getNovelDetail();
+  }
+
+  @override
+  void onClose() {
+    _fabAnimationCtr.dispose();
+    super.onClose();
+  }
+
+  void showFab() {
+    if (!_isFabVisible) {
+      _isFabVisible = true;
+      _fabAnimationCtr.forward();
+    }
+  }
+
+  void hideFab() {
+    if (_isFabVisible) {
+      _isFabVisible = false;
+      _fabAnimationCtr.reverse();
+    }
   }
 
   void enterSelectionMode() => isSelectionMode.value = true;
@@ -185,14 +216,12 @@ class NovelDetailController extends GetxController {
   Future<void> getNovelDetail() async {
     late NovelDetail data;
 
-    final futureList = await Future.wait([Api.getNovelDetail(aid: aid), Api.getCatalogue(aid: aid)]);
-
-    final nd = futureList[0];
-    final cat = futureList[1];
+    final nd = await Api.getNovelDetail(aid: aid);
 
     switch (nd) {
       case Success():
         data = Parser.getNovelDetail(nd.data);
+        final cat = await Api.getCatalogue(aid: aid);
         switch (cat) {
           case Success():
             {
@@ -207,23 +236,20 @@ class NovelDetailController extends GetxController {
               pageState.value = PageState.success;
               await DBService.instance.upsertNovelDetail(NovelDetailEntityData(aid: aid, json: novelDetail.value!.toString())); //缓存小说详情
             }
-
           case Error():
             {
-              if (!await _getNovelDetailByLocal()) {
-                //当网络和本地目录都没有的时候报错
-                errorMsg = cat.error.toString();
-                pageState.value = PageState.error;
-              }
+              //检测本地是否有缓存
+              if (await _getNovelDetailByLocal()) return;
+              errorMsg = cat.error.toString();
+              pageState.value = PageState.error;
             }
         }
       case Error():
         {
-          if (!await _getNovelDetailByLocal()) {
-            //当网络和本地目录都没有的时候报错
-            errorMsg = nd.error;
-            pageState.value = PageState.success;
-          }
+          //检测本地是否有缓存
+          if (await _getNovelDetailByLocal()) return;
+          errorMsg = nd.error.toString();
+          pageState.value = PageState.error;
         }
     }
   }
@@ -297,12 +323,12 @@ class NovelDetailController extends GetxController {
       Success() => Parser.novelVote(result.data),
       Error() => result.error.toString(),
     };
-    ScaffoldMessenger.of(Get.context!).showSnackBar(SnackBar(content: Text(string)));
+    showSnackBar(message: string, context: Get.context!);
   }
 
   Future<void> openWithBrowser() async {
     if (!await launchUrl(Uri.parse("${Api.wenku8Node.node}/book/$aid.htm"))) {
-      ScaffoldMessenger.of(Get.context!).showSnackBar(SnackBar(content: Text("unable_to_open_external_browser".tr)));
+      showSnackBar(message: "unable_to_open_external_browser".tr, context: Get.context!);
     }
   }
 

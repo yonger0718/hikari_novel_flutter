@@ -5,7 +5,6 @@ import 'package:hikari_novel_flutter/models/novel_cover.dart';
 import 'package:hikari_novel_flutter/models/page_state.dart';
 import 'package:hikari_novel_flutter/models/resource.dart';
 import 'package:hikari_novel_flutter/network/parser.dart';
-import 'package:hikari_novel_flutter/router/app_sub_router.dart';
 
 import '../../common/database/database.dart';
 import '../../network/api.dart';
@@ -34,9 +33,7 @@ class SearchController extends GetxController {
   void onReady() {
     super.onReady();
 
-    DBService.instance.getAllSearchHistory().listen((sh) {
-      searchHistory.assignAll(sh.reversed.map((e) => e.keyword));
-    });
+    DBService.instance.getAllSearchHistory().listen((sh) => searchHistory.assignAll(sh.reversed.map((e) => e.keyword)));
 
     checkIsAuthorSearch(author);
   }
@@ -47,6 +44,13 @@ class SearchController extends GetxController {
       searchMode.value = 1;
       getPage(false);
     }
+  }
+
+  void searchFromHistory(String keyword) {
+    keywordController.text = keyword;
+    keywordController.selection = TextSelection.fromPosition(TextPosition(offset: keywordController.text.length));
+    getPage(false);
+    Get.focusScope?.unfocus();
   }
 
   Future<IndicatorResult> getPage(bool loadMore) async {
@@ -90,15 +94,13 @@ class SearchController extends GetxController {
             return IndicatorResult.fail;
           }
 
-          var tempResult = Parser.isSearchResultOnlyOne(html);
-          if (tempResult != null) {
-            AppSubRouter.toNovelDetail(aid: tempResult.aid);
-            pageState.value = PageState.jumpToOtherPage;
-            return IndicatorResult.noMore;
-          }
-          if (!loadMore) _maxNum = Parser.getMaxNum(html);
+          final onlyOne = Parser.isSearchResultOnlyOne(html);
 
-          final parsedHtml = Parser.parseToList(html);
+          if (!loadMore) {
+            _maxNum = (onlyOne != null) ? 1 : Parser.getMaxNum(html);
+          }
+
+          final parsedHtml = (onlyOne != null) ? <NovelCover>[onlyOne] : Parser.parseToList(html);
 
           if (parsedHtml.isEmpty) {
             pageState.value = PageState.empty;
@@ -107,7 +109,7 @@ class SearchController extends GetxController {
 
           data.addAll(parsedHtml);
           if (!loadMore) pageState.value = PageState.success;
-          return IndicatorResult.success;
+          return (onlyOne != null) ? IndicatorResult.noMore : IndicatorResult.success;
         }
       case Error():
         {

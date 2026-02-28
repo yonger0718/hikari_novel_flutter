@@ -7,6 +7,8 @@ import 'package:hikari_novel_flutter/network/api.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 
+import 'image_url_helper.dart';
+
 import '../common/log.dart';
 import '../common/util.dart';
 import '../models/bookshelf.dart';
@@ -35,7 +37,7 @@ class Parser {
       try {
         final Element? imgElement = novelItem.querySelector("img");
         String img = imgElement?.attributes['src'] ?? '';
-        img = img.replaceAll("http://", "https://");
+        img = ImageUrlHelper.normalize(img);
 
         final Element? titleLinkElement = novelItem.querySelector("a");
         final String title = titleLinkElement?.attributes['title'] ?? "";
@@ -118,9 +120,7 @@ class Parser {
       finUpdate = "delisted".tr;
     }
     String imgUrl = t1.getElementsByTagName('img')[0].attributes['src'] ?? '';
-    if (imgUrl.startsWith('http://')) {
-      imgUrl = imgUrl.replaceFirst('http://', 'https://');
-    }
+    imgUrl = ImageUrlHelper.normalize(imgUrl);
     final table2 = t1.getElementsByTagName('table')[2];
     final td2 = table2.getElementsByTagName('td')[1];
     final spans = td2.getElementsByTagName('span');
@@ -206,7 +206,7 @@ class Parser {
         try {
           String title = j.getElementsByTagName("a")[1].text;
           String img = j.getElementsByTagName("img")[0].attributes["src"] ?? "";
-          if (!regex.hasMatch(img)) throw Exception();
+          if (!regex.hasMatch(img)) img = "";
           if (!img.startsWith("https")) {
             img = img.replaceFirst("http", "https");
           }
@@ -423,9 +423,11 @@ class Parser {
   static String novelVote(String html) {
     Document document = parse(html);
     var blockContent = document.getElementsByClassName("blockcontent");
-    if (blockContent.isEmpty) throw Exception();
-    var targetDiv = blockContent[0].querySelector("div[style='padding:10px']");
-    return targetDiv!.text;
+    if (blockContent.isNotEmpty) {
+      var targetDiv = blockContent[0].querySelector("div[style='padding:10px']");
+      return targetDiv!.text;
+    }
+    return "";
   }
 
   static UserInfo getUserInfo(String html) {
@@ -493,7 +495,7 @@ class Parser {
       if (tables.isEmpty) return null;
       final Element table0 = tables[0];
       final String title = table0.querySelectorAll('span').first.querySelector('b')?.text.trim() ?? '';
-      final String imgUrl = content.querySelectorAll('img').first.attributes['src']?.trim() ?? '';
+      final String imgUrl = ImageUrlHelper.normalize(content.querySelectorAll('img').first.attributes['src']?.trim() ?? '');
       final int idx = bookHref.indexOf('bid=');
       if (idx == -1) return null;
       final String aid = bookHref.substring(idx + 4);
@@ -515,7 +517,7 @@ class Parser {
     for (var img in imgElements) {
       String? src = img.attributes['src'];
       if (src != null && src.isNotEmpty) {
-        imgSrcList.add(src);
+        imgSrcList.add(ImageUrlHelper.normalize(src));
       }
     }
 

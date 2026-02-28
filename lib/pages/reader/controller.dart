@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:file_picker/file_picker.dart';
@@ -18,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:ttf_metadata/ttf_metadata.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:hikari_novel_flutter/service/tts_service.dart';
 
 import '../../common/database/database.dart';
 import '../../common/log.dart';
@@ -71,7 +71,7 @@ class ReaderController extends GetxController {
   RxInt maxPage = 0.obs;
 
   ///阅读位置，竖向用
-  RxInt location = 0.obs;
+  RxInt currentLocation = 0.obs;
 
   ///竖向模式下，显示当前阅读进度的百分比
   RxInt verticalProgress = 0.obs;
@@ -93,8 +93,6 @@ class ReaderController extends GetxController {
 
   Rxn<String> currentBgImagePath = Rxn();
 
-  bool isInitialized = false;
-
   @override
   void onInit() async {
     super.onInit();
@@ -113,11 +111,13 @@ class ReaderController extends GetxController {
 
     checkFontFile(true);
 
+    getInitLocation(); //事先赋值一下对应的变量，防止在build过程中修改obx变量
+
     //延迟更新阅读记录
     //debounce / ever / interval 只能在 Controller 生命周期里创建一次
     //TODO 还需要优化
-    interval(location, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
-    interval(currentIndex, (_) async => setReadHistory(), time: const Duration(milliseconds: 500));
+    interval(currentLocation, (_) => setReadHistory(), time: const Duration(milliseconds: 500));
+    interval(currentIndex, (_) => setReadHistory(), time: const Duration(milliseconds: 500));
   }
 
   @override
@@ -145,6 +145,7 @@ class ReaderController extends GetxController {
 
   @override
   void onClose() {
+    TtsService.instance.stop();
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: false);
     if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.onClose();
@@ -152,11 +153,10 @@ class ReaderController extends GetxController {
 
   //获取初始页面位置
   int getInitLocation() {
-    isInitialized = true;
     if (readerSettingsState.value.direction == ReaderDirection.upToDown) {
       try {
         int value = int.parse(Get.parameters["location"]!);
-        location.value = value;
+        currentLocation.value = value;
         return value;
       } catch (_) {
         return 0;
@@ -289,16 +289,16 @@ class ReaderController extends GetxController {
     }
   }
 
-  void setReadHistory() {
+  void setReadHistory() async {
     Log.d("setReadHistory");
-    DBService.instance.upsertReadHistory(
+    await DBService.instance.upsertReadHistory(
       ReadHistoryEntityData(
         cid: cid,
         aid: aid,
         readerMode: readerSettingsState.value.direction == ReaderDirection.upToDown ? kScrollReadMode : kPageReadMode,
         // 1为滚动模式，2为翻页模式，翻页模式的左右方向不影响阅读记录的使用
         isDualPage: isDualPage,
-        location: readerSettingsState.value.direction == ReaderDirection.upToDown ? location.value : currentIndex.value,
+        location: readerSettingsState.value.direction == ReaderDirection.upToDown ? currentLocation.value : currentIndex.value,
         progress: readerSettingsState.value.direction == ReaderDirection.upToDown ? verticalProgress.value : horizontalProgress.value,
         isLatest: true,
       ),

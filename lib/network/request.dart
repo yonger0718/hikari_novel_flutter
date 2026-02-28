@@ -7,7 +7,6 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:enough_convert/enough_convert.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart' as in_app_webview;
 import 'package:hikari_novel_flutter/models/common/wenku8_node.dart';
 import 'package:hikari_novel_flutter/models/custom_exception.dart';
 import 'package:hikari_novel_flutter/models/resource.dart';
@@ -21,7 +20,7 @@ import 'api.dart';
 class Request {
   static const userAgent = {
     io.HttpHeaders.userAgentHeader:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0",
   };
 
   static final _dioCookieJar = ckjar.CookieJar();
@@ -42,15 +41,16 @@ class Request {
 
     if (localCookie == null) return;
 
-    final uri = Uri.parse(LocalStorageService.instance.getWenku8Node().node);
-
     final cookies = localCookie.split(';').map((e) => e.trim()).where((e) => e.contains('=')).map((e) {
       final kv = e.split('=');
       return ckjar.Cookie(kv[0], kv.sublist(1).join('='));
     }).toList();
 
-    _dioCookieJar.saveFromResponse(uri, cookies);
+    _dioCookieJar.saveFromResponse(Uri.parse(Wenku8Node.wwwWenku8Cc.node), cookies);
+    _dioCookieJar.saveFromResponse(Uri.parse(Wenku8Node.wwwWenku8Net.node), cookies);
   }
+
+  static void deleteCookie() => _dioCookieJar.deleteAll();
 
   ///获取通用数据（如其他网站的数据，即不用wenku8的cookie）
   /// - [url] 对应网站的url
@@ -148,8 +148,6 @@ class CloudflareInterceptor extends Interceptor {
   final ckjar.CookieJar cookieJar;
 
   CloudflareInterceptor({required this.cookieJar});
-
-  in_app_webview.InAppWebViewController? webViewController;
 
   @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) async {
