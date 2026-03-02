@@ -32,7 +32,7 @@ class LoginPage extends StatelessWidget {
                     icon: Icon(Icons.arrow_upward),
                     tooltip: "back_to_previous_web_page".tr,
                   ),
-                  IconButton(onPressed: controller.inAppWebViewController?.reload, icon: Icon(Icons.refresh), tooltip: "refresh_web_page".tr),
+                  IconButton(onPressed: () => controller.inAppWebViewController?.reload(), icon: Icon(Icons.refresh), tooltip: "refresh_web_page".tr),
                 ]
               : [],
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hikari_novel_flutter/models/custom_exception.dart';
 import 'package:wx_divider/wx_divider.dart';
 
 class ErrorMessage extends StatelessWidget {
@@ -30,7 +31,7 @@ class ErrorMessage extends StatelessWidget {
   }
 
   Widget _buildErrorInfo() {
-    if (msg.contains("Cloudflare Challenge Detected")) {
+    if (isSpecificMessage(msg)) {
       return _getCommonErrorInfoView(msg);
     } else {
       return SingleChildScrollView(child: Text(msg));
@@ -98,20 +99,30 @@ class EmptyPage extends StatelessWidget {
   }
 }
 
-Widget _getCommonErrorInfoView(String msg) => SingleChildScrollView(
-  child: Column(
-    children: [
-      Text("cloudflare_challenge_exception_tip".tr),
-      WxDivider(pattern: WxDivider.dashed, color: Theme.of(Get.context!).colorScheme.onSurface,child: Text("Raw Message")),
-      const SizedBox(height: 6),
-      Text(msg),
-    ],
-  ),
-);
+Widget _getCommonErrorInfoView(String msg) {
+  late String tip;
+  if (msg.contains(cloudflareChallengeExceptionMessage)) {
+    tip = "cloudflare_challenge_exception_tip".tr;
+  } else if (msg.contains(cloudflare403ExceptionMessage)) {
+    tip = "cloudflare_403_exception_tip".tr;
+  }
+
+  return SingleChildScrollView(
+    child: Column(
+      children: [
+        Text(tip),
+        const SizedBox(height: 6),
+        WxDivider(pattern: WxDivider.dashed, color: Theme.of(Get.context!).colorScheme.onSurface,child: Text("Raw Message")),
+        const SizedBox(height: 6),
+        Text(msg),
+      ],
+    ),
+  );
+}
 
 Future showErrorDialog(String msg, List<Widget> actions) {
   late Widget content;
-  if (msg.contains("Cloudflare Challenge Detected")) {
+  if (isSpecificMessage(msg)) {
     content = _getCommonErrorInfoView(msg);
   } else {
     content = SingleChildScrollView(child: Text(msg));
@@ -143,3 +154,5 @@ void showSnackBar({
   // Show the created SnackBar
   ScaffoldMessenger.of(context).showSnackBar(snack);
 }
+
+bool isSpecificMessage(String msg) => msg.contains(cloudflareChallengeExceptionMessage) || msg.contains(cloudflare403ExceptionMessage);

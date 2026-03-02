@@ -33,7 +33,7 @@ class Request {
             validateStatus: (status) => status != null, //只要不是 null，就交给拦截器处理,
           ),
         )
-        ..interceptors.add(CloudflareInterceptor(cookieJar: _dioCookieJar))
+        ..interceptors.add(CloudflareInterceptor())
         ..interceptors.add(CookieManager(_dioCookieJar));
 
   static void initCookie() {
@@ -145,12 +145,14 @@ class Request {
 }
 
 class CloudflareInterceptor extends Interceptor {
-  final ckjar.CookieJar cookieJar;
-
-  CloudflareInterceptor({required this.cookieJar});
-
   @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) async {
+    final statusCode = response.statusCode;
+    if (statusCode == 403) {
+      handler.reject(Cloudflare403Exception(requestOptions: response.requestOptions));
+      return;
+    }
+
     final cfMitigated = response.headers['cf-mitigated'];
     if (cfMitigated == null || !cfMitigated.contains('challenge')) {
       handler.next(response);

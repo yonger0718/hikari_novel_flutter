@@ -279,7 +279,7 @@ class AppTranslations extends Translations {
       "refresh_tts_setting_tip": "修改语速/音调/音量后，需点击“刷新设置”才会立即生效（部分引擎播放中无法实时更新）",
       "listen_to_books": "听书",
       "unable_to_open_system_setting": "无法打开系统TTS设置",
-      "listen_to_books_failed_tip": "系统TTS没有开始播放。请在「系统TTS设置」里确认已安装引擎/语音，并尝试切换语言/引擎",
+      "listen_to_books_failed_tip": "系统TTS没有开始播放。请在<系统TTS设置>里确认已安装引擎/语音，并尝试切换语言/引擎",
       "system_tts": "系统TTS",
       "pause": "暂停",
       "play": "播放",
@@ -288,6 +288,7 @@ class AppTranslations extends Translations {
       "chapter_content_loading_tip": "当前章节还在加载中",
       "copy_all": "复制全部",
       "free_copy": "自由复制",
+      "cloudflare_403_exception_tip": "你的IP已被Cloudflare拒绝访问，请使用其他IP进行访问",
     },
 
     "zh_TW": {
@@ -563,10 +564,10 @@ class AppTranslations extends Translations {
       "tone": "音調",
       "volume": "音量",
       "refresh_setting": "重新整理設定",
-      "refresh_tts_setting_tip": "修改語速／音調／音量後，需點擊「重新整理設定」才會立即生效（部分引擎播放中無法即時更新）",
+      "refresh_tts_setting_tip": "修改語速／音調／音量後，需點擊<重新整理設定>才會立即生效（部分引擎播放中無法即時更新）",
       "listen_to_books": "聽書",
       "unable_to_open_system_setting": "無法開啟系統TTS設定",
-      "listen_to_books_failed_tip": "系統TTS尚未開始播放。請在「系統TTS設定」中確認已安裝引擎／語音，並嘗試切換語言／引擎",
+      "listen_to_books_failed_tip": "系統TTS尚未開始播放。請在<系統TTS設定>中確認已安裝引擎／語音，並嘗試切換語言／引擎",
       "system_tts": "系統TTS",
       "pause": "暫停",
       "play": "播放",
@@ -575,6 +576,7 @@ class AppTranslations extends Translations {
       "chapter_content_loading_tip": "目前章節仍在載入中",
       "copy_all": "複製全部",
       "free_copy": "自由複製",
+      "cloudflare_403_exception_tip": "你的IP已被Cloudflare拒絕訪問，請使用其他IP進行訪問",
     }
   };
 }
